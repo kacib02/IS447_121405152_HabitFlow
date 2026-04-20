@@ -14,6 +14,12 @@ import {
   initCategoryTable,
   Category,
 } from '../utils/categories';
+import {
+  createHabit,
+  getHabitsForActiveUser,
+  initHabitTable,
+  Habit,
+} from '../utils/habits';
 import FormField from '../components/FormField';
 
 type Props = {
@@ -31,18 +37,32 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const [categoryIcon, setCategoryIcon] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
 
+  const [habitTitle, setHabitTitle] = useState('');
+  const [habitDescription, setHabitDescription] = useState('');
+  const [habitType, setHabitType] = useState('');
+  const [habitUnit, setHabitUnit] = useState('');
+  const [habitCategoryId, setHabitCategoryId] = useState('');
+  const [habits, setHabits] = useState<Habit[]>([]);
+
   const loadCategories = async () => {
     const data = await getCategoriesForActiveUser();
     setCategories(data);
+  };
+
+  const loadHabits = async () => {
+    const data = await getHabitsForActiveUser();
+    setHabits(data);
   };
 
   useEffect(() => {
     const setup = async () => {
       try {
         await initCategoryTable();
+        await initHabitTable();
         await loadCategories();
+        await loadHabits();
       } catch (error) {
-        console.error('Category setup failed:', error);
+        console.error('Dashboard setup failed:', error);
       }
     };
 
@@ -60,6 +80,30 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Could not create category.';
+      Alert.alert('Error', message);
+    }
+  };
+
+  const handleCreateHabit = async () => {
+    try {
+      await createHabit(
+        habitTitle,
+        habitDescription,
+        habitType,
+        habitUnit,
+        Number(habitCategoryId)
+      );
+
+      setHabitTitle('');
+      setHabitDescription('');
+      setHabitType('');
+      setHabitUnit('');
+      setHabitCategoryId('');
+      await loadHabits();
+      Alert.alert('Success', 'Habit created successfully.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not create habit.';
       Alert.alert('Error', message);
     }
   };
@@ -138,7 +182,78 @@ export default function DashboardScreen({ user, onLogout }: Props) {
               <Text style={styles.listTitle}>
                 {category.icon} {category.name}
               </Text>
-              <Text style={styles.listSubtitle}>{category.color}</Text>
+              <Text style={styles.listSubtitle}>
+                {category.color} · ID: {category.id}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Create Habit</Text>
+
+        <FormField
+          label="Habit Title"
+          placeholder="e.g. Drink Water"
+          value={habitTitle}
+          onChangeText={setHabitTitle}
+        />
+
+        <FormField
+          label="Description"
+          placeholder="e.g. Stay hydrated every day"
+          value={habitDescription}
+          onChangeText={setHabitDescription}
+        />
+
+        <FormField
+          label="Habit Type"
+          placeholder="boolean or count"
+          value={habitType}
+          onChangeText={setHabitType}
+        />
+
+        <FormField
+          label="Unit"
+          placeholder="e.g. glasses, minutes, times"
+          value={habitUnit}
+          onChangeText={setHabitUnit}
+        />
+
+        <FormField
+          label="Category ID"
+          placeholder="Enter a category ID from the list above"
+          value={habitCategoryId}
+          onChangeText={setHabitCategoryId}
+          keyboardType="numeric"
+        />
+
+        <Pressable style={styles.primaryButton} onPress={handleCreateHabit}>
+          <Text style={styles.primaryButtonText}>Add Habit</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Your Habits</Text>
+
+        {habits.length === 0 ? (
+          <Text style={styles.emptyText}>No habits yet.</Text>
+        ) : (
+          habits.map((habit) => (
+            <View key={habit.id} style={styles.listItem}>
+              <Text style={styles.listTitle}>{habit.title}</Text>
+              <Text style={styles.listSubtitle}>
+                Type: {habit.habit_type} · Unit: {habit.unit}
+              </Text>
+              <Text style={styles.listSubtitle}>
+                Category: {habit.category_name}
+              </Text>
+              {habit.description ? (
+                <Text style={styles.listSubtitle}>
+                  Description: {habit.description}
+                </Text>
+              ) : null}
             </View>
           ))
         )}
