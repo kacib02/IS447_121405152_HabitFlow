@@ -38,6 +38,12 @@ import {
   calculateTargetProgress,
   TargetProgress,
 } from '../utils/targetProgress';
+import {
+  getInsightSummary,
+  getLast7DaysChartData,
+  InsightSummary,
+  DailyChartItem,
+} from '../utils/insights';
 import FormField from '../components/FormField';
 
 type Props = {
@@ -83,6 +89,13 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
 
+  const [insightSummary, setInsightSummary] = useState<InsightSummary>({
+    todayCount: 0,
+    weekCount: 0,
+    monthCount: 0,
+  });
+  const [chartData, setChartData] = useState<DailyChartItem[]>([]);
+
   const loadCategories = async () => {
     const data = await getCategoriesForActiveUser();
     setCategories(data);
@@ -112,6 +125,12 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     setTargetProgressMap(Object.fromEntries(progressEntries));
   };
 
+  const loadInsights = async () => {
+    const logs = await getHabitLogsForActiveUser();
+    setInsightSummary(getInsightSummary(logs));
+    setChartData(getLast7DaysChartData(logs));
+  };
+
   useEffect(() => {
     const setup = async () => {
       try {
@@ -124,6 +143,7 @@ export default function DashboardScreen({ user, onLogout }: Props) {
         await loadHabits();
         await loadHabitLogs();
         await loadTargets();
+        await loadInsights();
       } catch (error) {
         console.error('Dashboard setup failed:', error);
       }
@@ -188,6 +208,7 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       setLogNotes('');
       await loadHabitLogs();
       await loadTargets();
+      await loadInsights();
       Alert.alert('Success', 'Habit log created successfully.');
     } catch (error) {
       const message =
@@ -241,6 +262,7 @@ export default function DashboardScreen({ user, onLogout }: Props) {
             await deleteHabitLog(logId);
             await loadHabitLogs();
             await loadTargets();
+            await loadInsights();
           } catch (error) {
             const message =
               error instanceof Error ? error.message : 'Could not delete log.';
@@ -333,6 +355,8 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       matchesToDate
     );
   });
+
+  const maxChartValue = Math.max(...chartData.map((item) => item.total), 1);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -670,6 +694,45 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Insights</Text>
+
+        <View style={styles.insightRow}>
+          <View style={styles.insightBox}>
+            <Text style={styles.insightNumber}>{insightSummary.todayCount}</Text>
+            <Text style={styles.insightLabel}>Today</Text>
+          </View>
+
+          <View style={styles.insightBox}>
+            <Text style={styles.insightNumber}>{insightSummary.weekCount}</Text>
+            <Text style={styles.insightLabel}>This Week</Text>
+          </View>
+
+          <View style={styles.insightBox}>
+            <Text style={styles.insightNumber}>{insightSummary.monthCount}</Text>
+            <Text style={styles.insightLabel}>This Month</Text>
+          </View>
+        </View>
+
+        <Text style={styles.chartTitle}>Last 7 Days</Text>
+
+        <View style={styles.chartContainer}>
+          {chartData.map((item) => {
+            const barHeight = (item.total / maxChartValue) * 120;
+
+            return (
+              <View key={item.label} style={styles.chartItem}>
+                <View style={styles.chartBarArea}>
+                  <View style={[styles.chartBar, { height: barHeight }]} />
+                </View>
+                <Text style={styles.chartValue}>{item.total}</Text>
+                <Text style={styles.chartLabel}>{item.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Search & Filter Logs</Text>
 
         <FormField
@@ -921,5 +984,69 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#fff',
+  },
+  insightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 20,
+  },
+  insightBox: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  insightNumber: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  insightLabel: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#111827',
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minHeight: 170,
+    gap: 8,
+  },
+  chartItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  chartBarArea: {
+    height: 120,
+    justifyContent: 'flex-end',
+    marginBottom: 6,
+  },
+  chartBar: {
+    width: 22,
+    maxWidth: 22,
+    minHeight: 4,
+    backgroundColor: '#2563eb',
+    borderRadius: 6,
+  },
+  chartValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  chartLabel: {
+    fontSize: 11,
+    color: '#6b7280',
   },
 });
