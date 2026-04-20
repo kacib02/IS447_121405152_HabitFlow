@@ -78,6 +78,11 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     Record<number, TargetProgress>
   >({});
 
+  const [logSearchText, setLogSearchText] = useState('');
+  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
+
   const loadCategories = async () => {
     const data = await getCategoriesForActiveUser();
     setCategories(data);
@@ -266,6 +271,13 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     ]);
   };
 
+  const handleResetLogFilters = () => {
+    setLogSearchText('');
+    setFilterCategoryId('');
+    setFilterFromDate('');
+    setFilterToDate('');
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     await onLogout();
@@ -294,6 +306,33 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       ]
     );
   };
+
+  const filteredHabitLogs = habitLogs.filter((log) => {
+    const searchValue = logSearchText.trim().toLowerCase();
+
+    const matchesSearch =
+      searchValue === '' ||
+      log.habit_title?.toLowerCase().includes(searchValue) ||
+      log.category_name?.toLowerCase().includes(searchValue) ||
+      log.notes?.toLowerCase().includes(searchValue);
+
+    const matchesCategory =
+      filterCategoryId.trim() === '' ||
+      log.category_id === Number(filterCategoryId);
+
+    const matchesFromDate =
+      filterFromDate.trim() === '' || log.log_date >= filterFromDate.trim();
+
+    const matchesToDate =
+      filterToDate.trim() === '' || log.log_date <= filterToDate.trim();
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesFromDate &&
+      matchesToDate
+    );
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -475,19 +514,79 @@ export default function DashboardScreen({ user, onLogout }: Props) {
           keyboardType="numeric"
         />
 
-        <FormField
-          label="Period Type"
-          placeholder="weekly or monthly"
-          value={targetPeriodType}
-          onChangeText={setTargetPeriodType}
-        />
+        <Text style={styles.label}>Period Type</Text>
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={[
+              styles.optionButton,
+              targetPeriodType === 'weekly' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTargetPeriodType('weekly')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                targetPeriodType === 'weekly' && styles.optionButtonTextActive,
+              ]}
+            >
+              Weekly
+            </Text>
+          </Pressable>
 
-        <FormField
-          label="Target Type"
-          placeholder="count or sum"
-          value={targetType}
-          onChangeText={setTargetType}
-        />
+          <Pressable
+            style={[
+              styles.optionButton,
+              targetPeriodType === 'monthly' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTargetPeriodType('monthly')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                targetPeriodType === 'monthly' && styles.optionButtonTextActive,
+              ]}
+            >
+              Monthly
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.label}>Target Type</Text>
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={[
+              styles.optionButton,
+              targetType === 'count' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTargetType('count')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                targetType === 'count' && styles.optionButtonTextActive,
+              ]}
+            >
+              Count
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.optionButton,
+              targetType === 'sum' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTargetType('sum')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                targetType === 'sum' && styles.optionButtonTextActive,
+              ]}
+            >
+              Sum
+            </Text>
+          </Pressable>
+        </View>
 
         <FormField
           label="Target Value"
@@ -540,7 +639,8 @@ export default function DashboardScreen({ user, onLogout }: Props) {
                     styles.listSubtitle,
                     progress?.status === 'met' && styles.statusMet,
                     progress?.status === 'exceeded' && styles.statusExceeded,
-                    (!progress || progress.status === 'unmet') && styles.statusUnmet,
+                    (!progress || progress.status === 'unmet') &&
+                      styles.statusUnmet,
                   ]}
                 >
                   Status: {progress ? progress.status : 'unmet'}
@@ -570,12 +670,56 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Search & Filter Logs</Text>
+
+        <FormField
+          label="Search Text"
+          placeholder="Search by habit, category, or notes"
+          value={logSearchText}
+          onChangeText={setLogSearchText}
+        />
+
+        <FormField
+          label="Category ID"
+          placeholder="Filter by category ID"
+          value={filterCategoryId}
+          onChangeText={setFilterCategoryId}
+          keyboardType="numeric"
+        />
+
+        <FormField
+          label="From Date"
+          placeholder="YYYY-MM-DD"
+          value={filterFromDate}
+          onChangeText={setFilterFromDate}
+        />
+
+        <FormField
+          label="To Date"
+          placeholder="YYYY-MM-DD"
+          value={filterToDate}
+          onChangeText={setFilterToDate}
+        />
+
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={handleResetLogFilters}
+        >
+          <Text style={styles.secondaryButtonText}>Reset Filters</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Habit Log History</Text>
 
         {habitLogs.length === 0 ? (
           <Text style={styles.emptyText}>No habit logs yet.</Text>
+        ) : filteredHabitLogs.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No habit logs match your current filters.
+          </Text>
         ) : (
-          habitLogs.map((log) => (
+          filteredHabitLogs.map((log) => (
             <View key={log.id} style={styles.logItem}>
               <Text style={styles.listTitle}>
                 {log.habit_title} · {log.log_date}
@@ -646,6 +790,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     color: '#111827',
   },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 10,
+    color: '#111827',
+  },
   emptyText: {
     color: '#6b7280',
     fontSize: 15,
@@ -684,6 +835,18 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: '#e5e7eb',
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  secondaryButtonText: {
+    color: '#111827',
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 16,
@@ -734,5 +897,29 @@ const styles = StyleSheet.create({
   statusUnmet: {
     color: '#dc2626',
     fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  optionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  optionButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  optionButtonText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  optionButtonTextActive: {
+    color: '#fff',
   },
 });
