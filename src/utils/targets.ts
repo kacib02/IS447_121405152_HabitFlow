@@ -32,8 +32,7 @@ export async function initTargetTable() {
 }
 
 export async function createTarget(
-  habitId: number | null,
-  categoryId: number | null,
+  habitId: number,
   periodType: 'weekly' | 'monthly',
   targetType: 'count' | 'sum',
   targetValue: number
@@ -44,8 +43,8 @@ export async function createTarget(
     throw new Error('No active user found.');
   }
 
-  if (!habitId && !categoryId) {
-    throw new Error('A habit or category is required.');
+  if (!habitId) {
+    throw new Error('Habit is required.');
   }
 
   if (!periodType) {
@@ -67,7 +66,7 @@ export async function createTarget(
     [
       activeUser.id,
       habitId,
-      categoryId,
+      null,
       periodType,
       targetType,
       targetValue,
@@ -86,11 +85,9 @@ export async function getTargetsForActiveUser() {
   const rows = await db.getAllAsync<Target>(
     `SELECT
         targets.*,
-        habits.title AS habit_title,
-        categories.name AS category_name
+        habits.title AS habit_title
      FROM targets
      LEFT JOIN habits ON targets.habit_id = habits.id
-     LEFT JOIN categories ON targets.category_id = categories.id
      WHERE targets.user_id = ?
      ORDER BY targets.id DESC;`,
     [activeUser.id]
@@ -100,29 +97,5 @@ export async function getTargetsForActiveUser() {
 }
 
 export async function deleteTarget(targetId: number) {
-  await db.runAsync('DELETE FROM targets WHERE id = ?;', [targetId]);
-}
-
-export async function updateTarget(
-  targetId: number,
-  habitId: number | null,
-  categoryId: number | null,
-  periodType: 'weekly' | 'monthly',
-  targetType: 'count' | 'sum',
-  targetValue: number
-) {
-  if (!habitId && !categoryId) {
-    throw new Error('A habit or category is required.');
-  }
-
-  if (Number.isNaN(targetValue) || targetValue <= 0) {
-    throw new Error('Target value must be greater than 0.');
-  }
-
-  await db.runAsync(
-    `UPDATE targets
-     SET habit_id = ?, category_id = ?, period_type = ?, target_type = ?, target_value = ?
-     WHERE id = ?;`,
-    [habitId, categoryId, periodType, targetType, targetValue, targetId]
-  );
+  await db.runAsync(`DELETE FROM targets WHERE id = ?;`, [targetId]);
 }

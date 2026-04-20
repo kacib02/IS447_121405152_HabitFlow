@@ -45,15 +45,16 @@ export async function initDatabase() {
     );
 
     CREATE TABLE IF NOT EXISTS targets (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  habit_id INTEGER,
-  category_id INTEGER,
-  period_type TEXT NOT NULL,
-  target_type TEXT NOT NULL,
-  target_value REAL NOT NULL,
-  created_at TEXT NOT NULL
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      habit_id INTEGER,
+      category_id INTEGER,
+      period_type TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_value REAL NOT NULL,
+      created_at TEXT NOT NULL
 );
+
 
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

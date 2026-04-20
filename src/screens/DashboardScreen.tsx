@@ -27,6 +27,17 @@ import {
   initHabitLogTable,
   HabitLog,
 } from '../utils/habitLogs';
+import {
+  createTarget,
+  deleteTarget,
+  getTargetsForActiveUser,
+  initTargetTable,
+  Target,
+} from '../utils/targets';
+import {
+  calculateTargetProgress,
+  TargetProgress,
+} from '../utils/targetProgress';
 import FormField from '../components/FormField';
 
 type Props = {
@@ -58,6 +69,15 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const [logNotes, setLogNotes] = useState('');
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
 
+  const [targetHabitId, setTargetHabitId] = useState('');
+  const [targetPeriodType, setTargetPeriodType] = useState('weekly');
+  const [targetType, setTargetType] = useState('count');
+  const [targetValue, setTargetValue] = useState('');
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [targetProgressMap, setTargetProgressMap] = useState<
+    Record<number, TargetProgress>
+  >({});
+
   const loadCategories = async () => {
     const data = await getCategoriesForActiveUser();
     setCategories(data);
@@ -73,15 +93,32 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     setHabitLogs(data);
   };
 
+  const loadTargets = async () => {
+    const data = await getTargetsForActiveUser();
+    setTargets(data);
+
+    const progressEntries = await Promise.all(
+      data.map(async (target) => {
+        const progress = await calculateTargetProgress(target);
+        return [target.id, progress] as const;
+      })
+    );
+
+    setTargetProgressMap(Object.fromEntries(progressEntries));
+  };
+
   useEffect(() => {
     const setup = async () => {
       try {
         await initCategoryTable();
         await initHabitTable();
         await initHabitLogTable();
+        await initTargetTable();
+
         await loadCategories();
         await loadHabits();
         await loadHabitLogs();
+        await loadTargets();
       } catch (error) {
         console.error('Dashboard setup failed:', error);
       }
@@ -145,10 +182,45 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       setLogValue('');
       setLogNotes('');
       await loadHabitLogs();
+      await loadTargets();
       Alert.alert('Success', 'Habit log created successfully.');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Could not create habit log.';
+      Alert.alert('Error', message);
+    }
+  };
+
+  const handleCreateTarget = async () => {
+    try {
+      const cleanedPeriodType = targetPeriodType.trim().toLowerCase();
+      const cleanedTargetType = targetType.trim().toLowerCase();
+
+      if (cleanedPeriodType !== 'weekly' && cleanedPeriodType !== 'monthly') {
+        throw new Error('Period type must be weekly or monthly.');
+      }
+
+      if (cleanedTargetType !== 'count' && cleanedTargetType !== 'sum') {
+        throw new Error('Target type must be count or sum.');
+      }
+
+      await createTarget(
+        Number(targetHabitId),
+        cleanedPeriodType,
+        cleanedTargetType,
+        Number(targetValue)
+      );
+
+      setTargetHabitId('');
+      setTargetPeriodType('weekly');
+      setTargetType('count');
+      setTargetValue('');
+
+      await loadTargets();
+      Alert.alert('Success', 'Target created successfully.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not create target.';
       Alert.alert('Error', message);
     }
   };
@@ -163,9 +235,30 @@ export default function DashboardScreen({ user, onLogout }: Props) {
           try {
             await deleteHabitLog(logId);
             await loadHabitLogs();
+            await loadTargets();
           } catch (error) {
             const message =
               error instanceof Error ? error.message : 'Could not delete log.';
+            Alert.alert('Error', message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteTarget = (targetId: number) => {
+    Alert.alert('Delete Target', 'Are you sure you want to delete this target?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteTarget(targetId);
+            await loadTargets();
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : 'Could not delete target.';
             Alert.alert('Error', message);
           }
         },
@@ -372,6 +465,111 @@ export default function DashboardScreen({ user, onLogout }: Props) {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Create Target</Text>
+
+        <FormField
+          label="Habit ID"
+          placeholder="Enter a habit ID from the list above"
+          value={targetHabitId}
+          onChangeText={setTargetHabitId}
+          keyboardType="numeric"
+        />
+
+        <FormField
+          label="Period Type"
+          placeholder="weekly or monthly"
+          value={targetPeriodType}
+          onChangeText={setTargetPeriodType}
+        />
+
+        <FormField
+          label="Target Type"
+          placeholder="count or sum"
+          value={targetType}
+          onChangeText={setTargetType}
+        />
+
+        <FormField
+          label="Target Value"
+          placeholder="e.g. 4 or 30"
+          value={targetValue}
+          onChangeText={setTargetValue}
+          keyboardType="numeric"
+        />
+
+        <Pressable style={styles.primaryButton} onPress={handleCreateTarget}>
+          <Text style={styles.primaryButtonText}>Add Target</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Your Targets</Text>
+
+        {targets.length === 0 ? (
+          <Text style={styles.emptyText}>No targets yet.</Text>
+        ) : (
+          targets.map((target) => {
+            const progress = targetProgressMap[target.id];
+
+            return (
+              <View key={target.id} style={styles.targetItem}>
+                <Text style={styles.listTitle}>
+                  {target.habit_title ?? `Habit ID: ${target.habit_id}`}
+                </Text>
+
+                <Text style={styles.listSubtitle}>
+                  Period: {target.period_type} · Type: {target.target_type}
+                </Text>
+
+                <Text style={styles.listSubtitle}>
+                  Progress: {progress ? progress.progress : 0} / {target.target_value}
+                </Text>
+
+                {progress?.status === 'exceeded' ? (
+                  <Text style={styles.listSubtitle}>
+                    Exceeded by: {progress.exceededBy}
+                  </Text>
+                ) : (
+                  <Text style={styles.listSubtitle}>
+                    Remaining: {progress ? progress.remaining : target.target_value}
+                  </Text>
+                )}
+
+                <Text
+                  style={[
+                    styles.listSubtitle,
+                    progress?.status === 'met' && styles.statusMet,
+                    progress?.status === 'exceeded' && styles.statusExceeded,
+                    (!progress || progress.status === 'unmet') && styles.statusUnmet,
+                  ]}
+                >
+                  Status: {progress ? progress.status : 'unmet'}
+                </Text>
+
+                {progress ? (
+                  <View style={styles.progressBarBackground}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${progress.percent}%` },
+                      ]}
+                    />
+                  </View>
+                ) : null}
+
+                <Pressable
+                  style={styles.smallDeleteButton}
+                  onPress={() => handleDeleteTarget(target.id)}
+                >
+                  <Text style={styles.smallDeleteButtonText}>Delete Target</Text>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Habit Log History</Text>
 
         {habitLogs.length === 0 ? (
@@ -462,6 +660,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
+  targetItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
   listTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -506,6 +709,30 @@ const styles = StyleSheet.create({
   },
   smallDeleteButtonText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  progressBarBackground: {
+    height: 10,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 999,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: 999,
+  },
+  statusMet: {
+    color: '#16a34a',
+    fontWeight: '600',
+  },
+  statusExceeded: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  statusUnmet: {
+    color: '#dc2626',
     fontWeight: '600',
   },
 });

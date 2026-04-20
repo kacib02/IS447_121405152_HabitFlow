@@ -61,29 +61,16 @@ export async function calculateTargetProgress(target: Target): Promise<TargetPro
 
   const { start, end } = getPeriodBounds(target.period_type);
 
-  let query = `
-    SELECT * FROM habit_logs
-    WHERE user_id = ?
-      AND log_date >= ?
-      AND log_date <= ?
-  `;
-
-  const params: (number | string)[] = [activeUser.id, start, end];
-
-  if (target.habit_id) {
-    query += ` AND habit_id = ?`;
-    params.push(target.habit_id);
-  }
-
-  if (target.category_id) {
-    query += ` AND category_id = ?`;
-    params.push(target.category_id);
-  }
-
-  const logs = await db.getAllAsync<{
-    id: number;
-    value: number;
-  }>(query + ` ORDER BY log_date DESC, id DESC;`, params);
+  const logs = await db.getAllAsync<{ id: number; value: number }>(
+    `SELECT id, value
+     FROM habit_logs
+     WHERE user_id = ?
+       AND habit_id = ?
+       AND log_date >= ?
+       AND log_date <= ?
+     ORDER BY log_date DESC, id DESC;`,
+    [activeUser.id, target.habit_id, start, end]
+  );
 
   const progress =
     target.target_type === 'count'
