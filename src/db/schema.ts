@@ -46,6 +46,7 @@ export const targets = sqliteTable('targets', {
   habitId: integer('habit_id'),
   categoryId: integer('category_id'),
   periodType: text('period_type', { enum: ['weekly', 'monthly'] }).notNull(),
+  targetType: text('target_type', { enum: ['count', 'sum'] }).notNull(),
   targetValue: real('target_value').notNull(),
   createdAt: text('created_at').notNull(),
 });
