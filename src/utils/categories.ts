@@ -53,6 +53,34 @@ export async function createCategory(name: string, color: string, icon: string) 
   );
 }
 
+export async function updateCategory(
+  categoryId: number,
+  name: string,
+  color: string,
+  icon: string
+) {
+  const activeUser = await getActiveUser();
+
+  if (!activeUser) {
+    throw new Error('No active user found.');
+  }
+
+  const trimmedName = name.trim();
+  const trimmedColor = color.trim();
+  const trimmedIcon = icon.trim();
+
+  if (!trimmedName || !trimmedColor || !trimmedIcon) {
+    throw new Error('All category fields are required.');
+  }
+
+  await db.runAsync(
+    `UPDATE categories
+     SET name = ?, color = ?, icon = ?
+     WHERE id = ? AND user_id = ?;`,
+    [trimmedName, trimmedColor, trimmedIcon, categoryId, activeUser.id]
+  );
+}
+
 export async function getCategoriesForActiveUser() {
   const activeUser = await getActiveUser();
 

@@ -10,12 +10,14 @@ import {
 import { deleteCurrentUser, logoutUser } from '../utils/auth';
 import {
   createCategory,
+  updateCategory,
   getCategoriesForActiveUser,
   initCategoryTable,
   Category,
 } from '../utils/categories';
 import {
   createHabit,
+  updateHabit,
   getHabitsForActiveUser,
   initHabitTable,
   Habit,
@@ -60,6 +62,7 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const [categoryColor, setCategoryColor] = useState('');
   const [categoryIcon, setCategoryIcon] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
 
   const [habitTitle, setHabitTitle] = useState('');
   const [habitDescription, setHabitDescription] = useState('');
@@ -67,6 +70,7 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const [habitUnit, setHabitUnit] = useState('');
   const [habitCategoryId, setHabitCategoryId] = useState('');
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
 
   const [logHabitId, setLogHabitId] = useState('');
   const [logCategoryId, setLogCategoryId] = useState('');
@@ -154,41 +158,98 @@ export default function DashboardScreen({ user, onLogout }: Props) {
 
   const handleCreateCategory = async () => {
     try {
-      await createCategory(categoryName, categoryColor, categoryIcon);
+      if (editingCategoryId) {
+        await updateCategory(
+          editingCategoryId,
+          categoryName,
+          categoryColor,
+          categoryIcon
+        );
+        Alert.alert('Success', 'Category updated successfully.');
+      } else {
+        await createCategory(categoryName, categoryColor, categoryIcon);
+        Alert.alert('Success', 'Category created successfully.');
+      }
+
       setCategoryName('');
       setCategoryColor('');
       setCategoryIcon('');
+      setEditingCategoryId(null);
       await loadCategories();
-      Alert.alert('Success', 'Category created successfully.');
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Could not create category.';
+        error instanceof Error ? error.message : 'Could not save category.';
       Alert.alert('Error', message);
     }
   };
 
+  const handleEditCategory = (category: Category) => {
+    setEditingCategoryId(category.id);
+    setCategoryName(category.name);
+    setCategoryColor(category.color);
+    setCategoryIcon(category.icon);
+  };
+
+  const handleCancelEditCategory = () => {
+    setEditingCategoryId(null);
+    setCategoryName('');
+    setCategoryColor('');
+    setCategoryIcon('');
+  };
+
   const handleCreateHabit = async () => {
     try {
-      await createHabit(
-        habitTitle,
-        habitDescription,
-        habitType,
-        habitUnit,
-        Number(habitCategoryId)
-      );
+      if (editingHabitId) {
+        await updateHabit(
+          editingHabitId,
+          habitTitle,
+          habitDescription,
+          habitType,
+          habitUnit,
+          Number(habitCategoryId)
+        );
+        Alert.alert('Success', 'Habit updated successfully.');
+      } else {
+        await createHabit(
+          habitTitle,
+          habitDescription,
+          habitType,
+          habitUnit,
+          Number(habitCategoryId)
+        );
+        Alert.alert('Success', 'Habit created successfully.');
+      }
 
       setHabitTitle('');
       setHabitDescription('');
       setHabitType('');
       setHabitUnit('');
       setHabitCategoryId('');
+      setEditingHabitId(null);
       await loadHabits();
-      Alert.alert('Success', 'Habit created successfully.');
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Could not create habit.';
+        error instanceof Error ? error.message : 'Could not save habit.';
       Alert.alert('Error', message);
     }
+  };
+
+  const handleEditHabit = (habit: Habit) => {
+    setEditingHabitId(habit.id);
+    setHabitTitle(habit.title);
+    setHabitDescription(habit.description ?? '');
+    setHabitType(habit.habit_type);
+    setHabitUnit(habit.unit);
+    setHabitCategoryId(String(habit.category_id));
+  };
+
+  const handleCancelEditHabit = () => {
+    setEditingHabitId(null);
+    setHabitTitle('');
+    setHabitDescription('');
+    setHabitType('');
+    setHabitUnit('');
+    setHabitCategoryId('');
   };
 
   const handleCreateHabitLog = async () => {
@@ -388,8 +449,19 @@ export default function DashboardScreen({ user, onLogout }: Props) {
         />
 
         <Pressable style={styles.primaryButton} onPress={handleCreateCategory}>
-          <Text style={styles.primaryButtonText}>Add Category</Text>
+          <Text style={styles.primaryButtonText}>
+            {editingCategoryId ? 'Save Category' : 'Add Category'}
+          </Text>
         </Pressable>
+
+        {editingCategoryId ? (
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={handleCancelEditCategory}
+          >
+            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -406,6 +478,13 @@ export default function DashboardScreen({ user, onLogout }: Props) {
               <Text style={styles.listSubtitle}>
                 {category.color} · ID: {category.id}
               </Text>
+
+              <Pressable
+                style={styles.smallEditButton}
+                onPress={() => handleEditCategory(category)}
+              >
+                <Text style={styles.smallEditButtonText}>Edit Category</Text>
+              </Pressable>
             </View>
           ))
         )}
@@ -451,8 +530,19 @@ export default function DashboardScreen({ user, onLogout }: Props) {
         />
 
         <Pressable style={styles.primaryButton} onPress={handleCreateHabit}>
-          <Text style={styles.primaryButtonText}>Add Habit</Text>
+          <Text style={styles.primaryButtonText}>
+            {editingHabitId ? 'Save Habit' : 'Add Habit'}
+          </Text>
         </Pressable>
+
+        {editingHabitId ? (
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={handleCancelEditHabit}
+          >
+            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -476,6 +566,13 @@ export default function DashboardScreen({ user, onLogout }: Props) {
                 </Text>
               ) : null}
               <Text style={styles.listSubtitle}>Habit ID: {habit.id}</Text>
+
+              <Pressable
+                style={styles.smallEditButton}
+                onPress={() => handleEditHabit(habit)}
+              >
+                <Text style={styles.smallEditButtonText}>Edit Habit</Text>
+              </Pressable>
             </View>
           ))
         )}
@@ -934,6 +1031,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   smallDeleteButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  smallEditButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+  },
+  smallEditButtonText: {
     color: '#fff',
     fontWeight: '600',
   },

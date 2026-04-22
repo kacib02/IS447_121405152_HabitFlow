@@ -74,6 +74,49 @@ export async function createHabit(
   );
 }
 
+export async function updateHabit(
+  habitId: number,
+  title: string,
+  description: string,
+  habitType: string,
+  unit: string,
+  categoryId: number
+) {
+  const activeUser = await getActiveUser();
+
+  if (!activeUser) {
+    throw new Error('No active user found.');
+  }
+
+  const trimmedTitle = title.trim();
+  const trimmedDescription = description.trim();
+  const trimmedHabitType = habitType.trim().toLowerCase();
+  const trimmedUnit = unit.trim();
+
+  if (!trimmedTitle || !trimmedHabitType || !trimmedUnit || !categoryId) {
+    throw new Error('All habit fields are required.');
+  }
+
+  if (!['boolean', 'count'].includes(trimmedHabitType)) {
+    throw new Error('Habit type must be either boolean or count.');
+  }
+
+  await db.runAsync(
+    `UPDATE habits
+     SET category_id = ?, title = ?, description = ?, habit_type = ?, unit = ?
+     WHERE id = ? AND user_id = ?;`,
+    [
+      categoryId,
+      trimmedTitle,
+      trimmedDescription || null,
+      trimmedHabitType,
+      trimmedUnit,
+      habitId,
+      activeUser.id,
+    ]
+  );
+}
+
 export async function getHabitsForActiveUser() {
   const activeUser = await getActiveUser();
 
