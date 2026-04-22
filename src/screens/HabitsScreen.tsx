@@ -15,6 +15,11 @@ import {
   initHabitTable,
   Habit,
 } from '../utils/habits';
+import {
+  getCategoriesForActiveUser,
+  initCategoryTable,
+  Category,
+} from '../utils/categories';
 import FormField from '../components/FormField';
 
 export default function HabitsScreen() {
@@ -22,8 +27,10 @@ export default function HabitsScreen() {
   const [habitDescription, setHabitDescription] = useState('');
   const [trackingStyle, setTrackingStyle] = useState<'boolean' | 'count'>('count');
   const [habitUnit, setHabitUnit] = useState('');
-  const [habitCategoryId, setHabitCategoryId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
 
   const loadHabits = async () => {
@@ -31,17 +38,28 @@ export default function HabitsScreen() {
     setHabits(data);
   };
 
+  const loadCategories = async () => {
+    const data = await getCategoriesForActiveUser();
+    setCategories(data);
+  };
+
   useEffect(() => {
     const setup = async () => {
       await initHabitTable();
+      await initCategoryTable();
       await loadHabits();
+      await loadCategories();
     };
     setup();
   }, []);
 
   const handleSaveHabit = async () => {
     try {
-      const finalUnit = trackingStyle === 'boolean' ? 'times' : habitUnit;
+      const finalUnit = trackingStyle === 'boolean' ? 'completed' : habitUnit;
+
+      if (!selectedCategoryId) {
+        throw new Error('Please choose a category.');
+      }
 
       if (editingHabitId) {
         await updateHabit(
@@ -50,7 +68,7 @@ export default function HabitsScreen() {
           habitDescription,
           trackingStyle,
           finalUnit,
-          Number(habitCategoryId)
+          selectedCategoryId
         );
         Alert.alert('Success', 'Habit updated successfully.');
       } else {
@@ -59,7 +77,7 @@ export default function HabitsScreen() {
           habitDescription,
           trackingStyle,
           finalUnit,
-          Number(habitCategoryId)
+          selectedCategoryId
         );
         Alert.alert('Success', 'Habit created successfully.');
       }
@@ -68,7 +86,7 @@ export default function HabitsScreen() {
       setHabitDescription('');
       setTrackingStyle('count');
       setHabitUnit('');
-      setHabitCategoryId('');
+      setSelectedCategoryId(null);
       setEditingHabitId(null);
       await loadHabits();
     } catch (error) {
@@ -84,7 +102,7 @@ export default function HabitsScreen() {
     setHabitDescription(habit.description ?? '');
     setTrackingStyle(habit.habit_type === 'boolean' ? 'boolean' : 'count');
     setHabitUnit(habit.habit_type === 'boolean' ? '' : habit.unit);
-    setHabitCategoryId(String(habit.category_id));
+    setSelectedCategoryId(habit.category_id);
   };
 
   const handleDeleteHabit = (habitId: number) => {
@@ -120,8 +138,10 @@ export default function HabitsScreen() {
     setHabitDescription('');
     setTrackingStyle('count');
     setHabitUnit('');
-    setHabitCategoryId('');
+    setSelectedCategoryId(null);
   };
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -193,18 +213,52 @@ export default function HabitsScreen() {
         ) : (
           <View style={styles.helperBox}>
             <Text style={styles.helperText}>
-              This habit will be tracked as completed or not completed for each log.
+              This habit will be logged as completed or not completed.
             </Text>
           </View>
         )}
 
-        <FormField
-          label="Category ID"
-          placeholder="Enter a category ID"
-          value={habitCategoryId}
-          onChangeText={setHabitCategoryId}
-          keyboardType="numeric"
-        />
+        <Text style={styles.label}>Choose Category</Text>
+        {categories.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No categories yet. Create a category first.
+          </Text>
+        ) : (
+          <View style={styles.choiceWrap}>
+            {categories.map((category) => (
+              <Pressable
+                key={category.id}
+                style={[
+                  styles.choiceChip,
+                  selectedCategoryId === category.id && styles.choiceChipActive,
+                ]}
+                onPress={() => setSelectedCategoryId(category.id)}
+              >
+                <View
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: category.color },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.choiceChipText,
+                    selectedCategoryId === category.id &&
+                      styles.choiceChipTextActive,
+                  ]}
+                >
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {selectedCategory ? (
+          <Text style={styles.helperSelected}>
+            Selected: {selectedCategory.name}
+          </Text>
+        ) : null}
 
         <Pressable style={styles.primaryButton} onPress={handleSaveHabit}>
           <Text style={styles.primaryButtonText}>
@@ -242,7 +296,6 @@ export default function HabitsScreen() {
                   Description: {habit.description}
                 </Text>
               ) : null}
-              <Text style={styles.listSubtitle}>Habit ID: {habit.id}</Text>
 
               <View style={styles.actionRow}>
                 <Pressable
@@ -310,6 +363,12 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     fontSize: 14,
   },
+  helperSelected: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginTop: 8,
+    marginBottom: 10,
+  },
   emptyText: {
     color: '#6b7280',
     fontSize: 15,
@@ -333,7 +392,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
-    marginTop: 4,
+    marginTop: 8,
     marginBottom: 10,
   },
   primaryButtonText: {
@@ -402,5 +461,39 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#fff',
+  },
+  choiceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  choiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+  },
+  choiceChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  choiceChipText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  choiceChipTextActive: {
+    color: '#fff',
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
 });

@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import {
   createHabitLog,
   deleteHabitLog,
@@ -7,15 +14,20 @@ import {
   initHabitLogTable,
   HabitLog,
 } from '../utils/habitLogs';
+import {
+  getHabitsForActiveUser,
+  initHabitTable,
+  Habit,
+} from '../utils/habits';
 import FormField from '../components/FormField';
 
 export default function LogsScreen() {
-  const [logHabitId, setLogHabitId] = useState('');
-  const [logCategoryId, setLogCategoryId] = useState('');
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const [logDate, setLogDate] = useState('');
   const [logValue, setLogValue] = useState('');
   const [logNotes, setLogNotes] = useState('');
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
 
   const [logSearchText, setLogSearchText] = useState('');
   const [filterCategoryId, setFilterCategoryId] = useState('');
@@ -27,26 +39,44 @@ export default function LogsScreen() {
     setHabitLogs(data);
   };
 
+  const loadHabits = async () => {
+    const data = await getHabitsForActiveUser();
+    setHabits(data);
+  };
+
   useEffect(() => {
     const setup = async () => {
       await initHabitLogTable();
+      await initHabitTable();
       await loadHabitLogs();
+      await loadHabits();
     };
     setup();
   }, []);
 
+  const selectedHabit = useMemo(
+    () => habits.find((habit) => habit.id === selectedHabitId) ?? null,
+    [habits, selectedHabitId]
+  );
+
   const handleCreateHabitLog = async () => {
     try {
+      if (!selectedHabit) {
+        throw new Error('Please choose a habit.');
+      }
+
+      const finalValue =
+        selectedHabit.habit_type === 'boolean' ? Number(logValue || '1') : Number(logValue);
+
       await createHabitLog(
-        Number(logHabitId),
-        Number(logCategoryId),
+        selectedHabit.id,
+        selectedHabit.category_id,
         logDate,
-        Number(logValue),
+        finalValue,
         logNotes
       );
 
-      setLogHabitId('');
-      setLogCategoryId('');
+      setSelectedHabitId(null);
       setLogDate('');
       setLogValue('');
       setLogNotes('');
@@ -120,21 +150,46 @@ export default function LogsScreen() {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Log Habit Activity</Text>
 
-        <FormField
-          label="Habit ID"
-          placeholder="Enter a habit ID"
-          value={logHabitId}
-          onChangeText={setLogHabitId}
-          keyboardType="numeric"
-        />
+        <Text style={styles.label}>Choose Habit</Text>
+        {habits.length === 0 ? (
+          <Text style={styles.emptyText}>No habits yet. Create a habit first.</Text>
+        ) : (
+          <View style={styles.choiceWrap}>
+            {habits.map((habit) => (
+              <Pressable
+                key={habit.id}
+                style={[
+                  styles.choiceChip,
+                  selectedHabitId === habit.id && styles.choiceChipActive,
+                ]}
+                onPress={() => setSelectedHabitId(habit.id)}
+              >
+                <Text
+                  style={[
+                    styles.choiceChipText,
+                    selectedHabitId === habit.id && styles.choiceChipTextActive,
+                  ]}
+                >
+                  {habit.title}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
-        <FormField
-          label="Category ID"
-          placeholder="Enter the related category ID"
-          value={logCategoryId}
-          onChangeText={setLogCategoryId}
-          keyboardType="numeric"
-        />
+        {selectedHabit ? (
+          <View style={styles.helperBox}>
+            <Text style={styles.helperText}>
+              Category: {selectedHabit.category_name}
+            </Text>
+            <Text style={styles.helperText}>
+              Tracking: {selectedHabit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
+            </Text>
+            <Text style={styles.helperText}>
+              Unit: {selectedHabit.habit_type === 'boolean' ? 'Completed' : selectedHabit.unit}
+            </Text>
+          </View>
+        ) : null}
 
         <FormField
           label="Log Date"
@@ -143,13 +198,54 @@ export default function LogsScreen() {
           onChangeText={setLogDate}
         />
 
-        <FormField
-          label="Value"
-          placeholder="e.g. 1, 3, 20"
-          value={logValue}
-          onChangeText={setLogValue}
-          keyboardType="numeric"
-        />
+        {selectedHabit?.habit_type === 'boolean' ? (
+          <>
+            <Text style={styles.label}>Completed?</Text>
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={[
+                  styles.optionButton,
+                  logValue === '1' && styles.optionButtonActive,
+                ]}
+                onPress={() => setLogValue('1')}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    logValue === '1' && styles.optionButtonTextActive,
+                  ]}
+                >
+                  Yes
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.optionButton,
+                  logValue === '0' && styles.optionButtonActive,
+                ]}
+                onPress={() => setLogValue('0')}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    logValue === '0' && styles.optionButtonTextActive,
+                  ]}
+                >
+                  No
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <FormField
+            label="Value"
+            placeholder="e.g. 1, 3, 20"
+            value={logValue}
+            onChangeText={setLogValue}
+            keyboardType="numeric"
+          />
+        )}
 
         <FormField
           label="Notes"
@@ -266,6 +362,25 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     color: '#111827',
   },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 10,
+    color: '#111827',
+  },
+  helperBox: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  helperText: {
+    color: '#4b5563',
+    fontSize: 14,
+    marginTop: 2,
+  },
   emptyText: {
     color: '#6b7280',
     fontSize: 15,
@@ -321,5 +436,54 @@ const styles = StyleSheet.create({
   smallDeleteButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  optionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  optionButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  optionButtonText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  optionButtonTextActive: {
+    color: '#fff',
+  },
+  choiceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 8,
+  },
+  choiceChip: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+  },
+  choiceChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  choiceChipText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  choiceChipTextActive: {
+    color: '#fff',
   },
 });

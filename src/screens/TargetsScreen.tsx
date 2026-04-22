@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import {
   createTarget,
   deleteTarget,
@@ -11,14 +18,20 @@ import {
   calculateTargetProgress,
   TargetProgress,
 } from '../utils/targetProgress';
+import {
+  getHabitsForActiveUser,
+  initHabitTable,
+  Habit,
+} from '../utils/habits';
 import FormField from '../components/FormField';
 
 export default function TargetsScreen() {
-  const [targetHabitId, setTargetHabitId] = useState('');
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const [targetPeriodType, setTargetPeriodType] = useState('weekly');
   const [targetType, setTargetType] = useState('count');
   const [targetValue, setTargetValue] = useState('');
   const [targets, setTargets] = useState<Target[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [targetProgressMap, setTargetProgressMap] = useState<
     Record<number, TargetProgress>
   >({});
@@ -37,16 +50,38 @@ export default function TargetsScreen() {
     setTargetProgressMap(Object.fromEntries(progressEntries));
   };
 
+  const loadHabits = async () => {
+    const data = await getHabitsForActiveUser();
+    setHabits(data);
+  };
+
   useEffect(() => {
     const setup = async () => {
       await initTargetTable();
+      await initHabitTable();
       await loadTargets();
+      await loadHabits();
     };
     setup();
   }, []);
 
+  const selectedHabit = useMemo(
+    () => habits.find((habit) => habit.id === selectedHabitId) ?? null,
+    [habits, selectedHabitId]
+  );
+
+  useEffect(() => {
+    if (selectedHabit?.habit_type === 'boolean') {
+      setTargetType('count');
+    }
+  }, [selectedHabit]);
+
   const handleCreateTarget = async () => {
     try {
+      if (!selectedHabitId) {
+        throw new Error('Please choose a habit.');
+      }
+
       const cleanedPeriodType = targetPeriodType.trim().toLowerCase();
       const cleanedTargetType = targetType.trim().toLowerCase();
 
@@ -59,13 +94,13 @@ export default function TargetsScreen() {
       }
 
       await createTarget(
-        Number(targetHabitId),
+        selectedHabitId,
         cleanedPeriodType,
         cleanedTargetType,
         Number(targetValue)
       );
 
-      setTargetHabitId('');
+      setSelectedHabitId(null);
       setTargetPeriodType('weekly');
       setTargetType('count');
       setTargetValue('');
@@ -105,13 +140,43 @@ export default function TargetsScreen() {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Create Target</Text>
 
-        <FormField
-          label="Habit ID"
-          placeholder="Enter a habit ID"
-          value={targetHabitId}
-          onChangeText={setTargetHabitId}
-          keyboardType="numeric"
-        />
+        <Text style={styles.label}>Choose Habit</Text>
+        {habits.length === 0 ? (
+          <Text style={styles.emptyText}>No habits yet. Create a habit first.</Text>
+        ) : (
+          <View style={styles.choiceWrap}>
+            {habits.map((habit) => (
+              <Pressable
+                key={habit.id}
+                style={[
+                  styles.choiceChip,
+                  selectedHabitId === habit.id && styles.choiceChipActive,
+                ]}
+                onPress={() => setSelectedHabitId(habit.id)}
+              >
+                <Text
+                  style={[
+                    styles.choiceChipText,
+                    selectedHabitId === habit.id && styles.choiceChipTextActive,
+                  ]}
+                >
+                  {habit.title}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {selectedHabit ? (
+          <View style={styles.helperBox}>
+            <Text style={styles.helperText}>
+              Tracking: {selectedHabit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
+            </Text>
+            <Text style={styles.helperText}>
+              Unit: {selectedHabit.habit_type === 'boolean' ? 'Completed' : selectedHabit.unit}
+            </Text>
+          </View>
+        ) : null}
 
         <Text style={styles.label}>Period Type</Text>
         <View style={styles.buttonRow}>
@@ -150,42 +215,52 @@ export default function TargetsScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.label}>Tracking Goal</Text>
-        <View style={styles.buttonRow}>
-          <Pressable
-            style={[
-              styles.optionButton,
-              targetType === 'count' && styles.optionButtonActive,
-            ]}
-            onPress={() => setTargetType('count')}
-          >
-            <Text
-              style={[
-                styles.optionButtonText,
-                targetType === 'Number of Times' && styles.optionButtonTextActive,
-              ]}
-            >
-              Count
-            </Text>
-          </Pressable>
+        {selectedHabit?.habit_type === 'count' ? (
+          <>
+            <Text style={styles.label}>Tracking Goal</Text>
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={[
+                  styles.optionButton,
+                  targetType === 'count' && styles.optionButtonActive,
+                ]}
+                onPress={() => setTargetType('count')}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    targetType === 'count' && styles.optionButtonTextActive,
+                  ]}
+                >
+                  Number of times
+                </Text>
+              </Pressable>
 
-          <Pressable
-            style={[
-              styles.optionButton,
-              targetType === 'Target Amount' && styles.optionButtonActive,
-            ]}
-            onPress={() => setTargetType('sum')}
-          >
-            <Text
-              style={[
-                styles.optionButtonText,
-                targetType === 'sum' && styles.optionButtonTextActive,
-              ]}
-            >
-              Sum
+              <Pressable
+                style={[
+                  styles.optionButton,
+                  targetType === 'sum' && styles.optionButtonActive,
+                ]}
+                onPress={() => setTargetType('sum')}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    targetType === 'sum' && styles.optionButtonTextActive,
+                  ]}
+                >
+                  Total amount
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={styles.helperBox}>
+            <Text style={styles.helperText}>
+              This target will count how many times the habit was completed.
             </Text>
-          </Pressable>
-        </View>
+          </View>
+        )}
 
         <FormField
           label="Target Value"
@@ -216,7 +291,8 @@ export default function TargetsScreen() {
                 </Text>
 
                 <Text style={styles.listSubtitle}>
-                  Period: {target.period_type} · Type: {target.target_type}
+                  Period: {target.period_type} · Goal:{' '}
+                  {target.target_type === 'count' ? 'Number of times' : 'Total amount'}
                 </Text>
 
                 <Text style={styles.listSubtitle}>
@@ -303,6 +379,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 10,
     color: '#111827',
+  },
+  helperBox: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  helperText: {
+    color: '#4b5563',
+    fontSize: 14,
+    marginTop: 2,
   },
   emptyText: {
     color: '#6b7280',
@@ -394,6 +482,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   optionButtonTextActive: {
+    color: '#fff',
+  },
+  choiceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 8,
+  },
+  choiceChip: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+  },
+  choiceChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  choiceChipText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  choiceChipTextActive: {
     color: '#fff',
   },
 });
