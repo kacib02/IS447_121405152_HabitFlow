@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { categories } from '../db/schema';
 import { getActiveUser } from './auth';
@@ -8,12 +8,11 @@ export type Category = {
   user_id: number;
   name: string;
   color: string;
+  icon: string;
   created_at: string;
 };
 
 export async function initCategoryTable() {
-  // Table creation is already handled in your DB init.
-  // Kept here so your screen code does not need to change.
   return;
 }
 
@@ -35,6 +34,7 @@ export async function createCategory(name: string, color: string) {
     userId: activeUser.id,
     name: trimmedName,
     color: trimmedColor,
+    icon: 'grid-outline',
     createdAt: new Date().toISOString(),
   });
 }
@@ -106,6 +106,7 @@ export async function getCategoriesForActiveUser(): Promise<Category[]> {
     user_id: row.userId,
     name: row.name,
     color: row.color,
+    icon: row.icon,
     created_at: row.createdAt,
   }));
 }
