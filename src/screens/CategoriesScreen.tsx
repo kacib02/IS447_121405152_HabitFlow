@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import {
   createCategory,
   updateCategory,
+  deleteCategory,
   getCategoriesForActiveUser,
   initCategoryTable,
   Category,
@@ -55,6 +63,33 @@ export default function CategoriesScreen() {
     setEditingCategoryId(category.id);
     setCategoryName(category.name);
     setCategoryColor(category.color);
+  };
+
+  const handleDeleteCategory = (categoryId: number) => {
+    Alert.alert(
+      'Delete Category',
+      'Are you sure you want to delete this category?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCategory(categoryId);
+              if (editingCategoryId === categoryId) {
+                handleCancelEdit();
+              }
+              await loadCategories();
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Could not delete category.';
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCancelEdit = () => {
@@ -127,12 +162,21 @@ export default function CategoriesScreen() {
                 <Text style={styles.listSubtitle}>ID: {category.id}</Text>
               </View>
 
-              <Pressable
-                style={styles.smallEditButton}
-                onPress={() => handleEditCategory(category)}
-              >
-                <Text style={styles.smallEditButtonText}>Edit Category</Text>
-              </Pressable>
+              <View style={styles.actionRow}>
+                <Pressable
+                  style={styles.smallEditButton}
+                  onPress={() => handleEditCategory(category)}
+                >
+                  <Text style={styles.smallEditButtonText}>Edit</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.smallDeleteButton}
+                  onPress={() => handleDeleteCategory(category.id)}
+                >
+                  <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
           ))
         )}
@@ -218,15 +262,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
   smallEditButton: {
     backgroundColor: '#2563eb',
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'flex-start',
     paddingHorizontal: 12,
   },
   smallEditButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  smallDeleteButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  smallDeleteButtonText: {
     color: '#fff',
     fontWeight: '600',
   },

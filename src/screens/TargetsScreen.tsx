@@ -150,7 +150,7 @@ export default function TargetsScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.label}>Target Type</Text>
+        <Text style={styles.label}>Tracking Goal</Text>
         <View style={styles.buttonRow}>
           <Pressable
             style={[
@@ -162,7 +162,7 @@ export default function TargetsScreen() {
             <Text
               style={[
                 styles.optionButtonText,
-                targetType === 'count' && styles.optionButtonTextActive,
+                targetType === 'Number of Times' && styles.optionButtonTextActive,
               ]}
             >
               Count
@@ -172,7 +172,7 @@ export default function TargetsScreen() {
           <Pressable
             style={[
               styles.optionButton,
-              targetType === 'sum' && styles.optionButtonActive,
+              targetType === 'Target Amount' && styles.optionButtonActive,
             ]}
             onPress={() => setTargetType('sum')}
           >

@@ -117,6 +117,20 @@ export async function updateHabit(
   );
 }
 
+export async function deleteHabit(habitId: number) {
+  const activeUser = await getActiveUser();
+
+  if (!activeUser) {
+    throw new Error('No active user found.');
+  }
+
+  await db.runAsync(
+    `DELETE FROM habits
+     WHERE id = ? AND user_id = ?;`,
+    [habitId, activeUser.id]
+  );
+}
+
 export async function getHabitsForActiveUser() {
   const activeUser = await getActiveUser();
 

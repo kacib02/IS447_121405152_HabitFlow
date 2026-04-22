@@ -34,7 +34,7 @@ export async function createCategory(name: string, color: string) {
   const trimmedColor = color.trim().toLowerCase();
 
   if (!trimmedName || !trimmedColor) {
-    throw new Error('All category fields are required.');
+    throw new Error('Category name and colour are required.');
   }
 
   await db.runAsync(
@@ -55,11 +55,32 @@ export async function updateCategory(
     throw new Error('No active user found.');
   }
 
+  const trimmedName = name.trim();
+  const trimmedColor = color.trim().toLowerCase();
+
+  if (!trimmedName || !trimmedColor) {
+    throw new Error('Category name and colour are required.');
+  }
+
   await db.runAsync(
     `UPDATE categories
      SET name = ?, color = ?
      WHERE id = ? AND user_id = ?;`,
-    [name.trim(), color.trim().toLowerCase(), categoryId, activeUser.id]
+    [trimmedName, trimmedColor, categoryId, activeUser.id]
+  );
+}
+
+export async function deleteCategory(categoryId: number) {
+  const activeUser = await getActiveUser();
+
+  if (!activeUser) {
+    throw new Error('No active user found.');
+  }
+
+  await db.runAsync(
+    `DELETE FROM categories
+     WHERE id = ? AND user_id = ?;`,
+    [categoryId, activeUser.id]
   );
 }
 
@@ -71,8 +92,9 @@ export async function getCategoriesForActiveUser() {
   }
 
   return await db.getAllAsync<Category>(
-    `SELECT * FROM categories WHERE user_id = ? ORDER BY id DESC;`,
+    `SELECT * FROM categories
+     WHERE user_id = ?
+     ORDER BY id DESC;`,
     [activeUser.id]
   );
 }
- 

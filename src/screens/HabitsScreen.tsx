@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import {
   createHabit,
   updateHabit,
+  deleteHabit,
   getHabitsForActiveUser,
   initHabitTable,
   Habit,
@@ -12,7 +20,7 @@ import FormField from '../components/FormField';
 export default function HabitsScreen() {
   const [habitTitle, setHabitTitle] = useState('');
   const [habitDescription, setHabitDescription] = useState('');
-  const [habitType, setHabitType] = useState('');
+  const [trackingStyle, setTrackingStyle] = useState<'boolean' | 'count'>('count');
   const [habitUnit, setHabitUnit] = useState('');
   const [habitCategoryId, setHabitCategoryId] = useState('');
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -33,13 +41,15 @@ export default function HabitsScreen() {
 
   const handleSaveHabit = async () => {
     try {
+      const finalUnit = trackingStyle === 'boolean' ? 'times' : habitUnit;
+
       if (editingHabitId) {
         await updateHabit(
           editingHabitId,
           habitTitle,
           habitDescription,
-          habitType,
-          habitUnit,
+          trackingStyle,
+          finalUnit,
           Number(habitCategoryId)
         );
         Alert.alert('Success', 'Habit updated successfully.');
@@ -47,8 +57,8 @@ export default function HabitsScreen() {
         await createHabit(
           habitTitle,
           habitDescription,
-          habitType,
-          habitUnit,
+          trackingStyle,
+          finalUnit,
           Number(habitCategoryId)
         );
         Alert.alert('Success', 'Habit created successfully.');
@@ -56,7 +66,7 @@ export default function HabitsScreen() {
 
       setHabitTitle('');
       setHabitDescription('');
-      setHabitType('');
+      setTrackingStyle('count');
       setHabitUnit('');
       setHabitCategoryId('');
       setEditingHabitId(null);
@@ -72,16 +82,43 @@ export default function HabitsScreen() {
     setEditingHabitId(habit.id);
     setHabitTitle(habit.title);
     setHabitDescription(habit.description ?? '');
-    setHabitType(habit.habit_type);
-    setHabitUnit(habit.unit);
+    setTrackingStyle(habit.habit_type === 'boolean' ? 'boolean' : 'count');
+    setHabitUnit(habit.habit_type === 'boolean' ? '' : habit.unit);
     setHabitCategoryId(String(habit.category_id));
+  };
+
+  const handleDeleteHabit = (habitId: number) => {
+    Alert.alert(
+      'Delete Habit',
+      'Are you sure you want to delete this habit?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteHabit(habitId);
+              if (editingHabitId === habitId) {
+                handleCancelEdit();
+              }
+              await loadHabits();
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Could not delete habit.';
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCancelEdit = () => {
     setEditingHabitId(null);
     setHabitTitle('');
     setHabitDescription('');
-    setHabitType('');
+    setTrackingStyle('count');
     setHabitUnit('');
     setHabitCategoryId('');
   };
@@ -109,19 +146,57 @@ export default function HabitsScreen() {
           onChangeText={setHabitDescription}
         />
 
-        <FormField
-          label="Habit Type"
-          placeholder="boolean or count"
-          value={habitType}
-          onChangeText={setHabitType}
-        />
+        <Text style={styles.label}>Tracking Style</Text>
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={[
+              styles.optionButton,
+              trackingStyle === 'count' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTrackingStyle('count')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                trackingStyle === 'count' && styles.optionButtonTextActive,
+              ]}
+            >
+              Number
+            </Text>
+          </Pressable>
 
-        <FormField
-          label="Unit"
-          placeholder="e.g. glasses, minutes, times"
-          value={habitUnit}
-          onChangeText={setHabitUnit}
-        />
+          <Pressable
+            style={[
+              styles.optionButton,
+              trackingStyle === 'boolean' && styles.optionButtonActive,
+            ]}
+            onPress={() => setTrackingStyle('boolean')}
+          >
+            <Text
+              style={[
+                styles.optionButtonText,
+                trackingStyle === 'boolean' && styles.optionButtonTextActive,
+              ]}
+            >
+              Yes / No
+            </Text>
+          </Pressable>
+        </View>
+
+        {trackingStyle === 'count' ? (
+          <FormField
+            label="Unit"
+            placeholder="e.g. glasses, minutes, euro"
+            value={habitUnit}
+            onChangeText={setHabitUnit}
+          />
+        ) : (
+          <View style={styles.helperBox}>
+            <Text style={styles.helperText}>
+              This habit will be tracked as completed or not completed for each log.
+            </Text>
+          </View>
+        )}
 
         <FormField
           label="Category ID"
@@ -154,7 +229,10 @@ export default function HabitsScreen() {
             <View key={habit.id} style={styles.listItem}>
               <Text style={styles.listTitle}>{habit.title}</Text>
               <Text style={styles.listSubtitle}>
-                Type: {habit.habit_type} · Unit: {habit.unit}
+                Tracking: {habit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
+              </Text>
+              <Text style={styles.listSubtitle}>
+                Unit: {habit.habit_type === 'boolean' ? 'Completed' : habit.unit}
               </Text>
               <Text style={styles.listSubtitle}>
                 Category: {habit.category_name}
@@ -166,12 +244,21 @@ export default function HabitsScreen() {
               ) : null}
               <Text style={styles.listSubtitle}>Habit ID: {habit.id}</Text>
 
-              <Pressable
-                style={styles.smallEditButton}
-                onPress={() => handleEditHabit(habit)}
-              >
-                <Text style={styles.smallEditButtonText}>Edit Habit</Text>
-              </Pressable>
+              <View style={styles.actionRow}>
+                <Pressable
+                  style={styles.smallEditButton}
+                  onPress={() => handleEditHabit(habit)}
+                >
+                  <Text style={styles.smallEditButtonText}>Edit</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.smallDeleteButton}
+                  onPress={() => handleDeleteHabit(habit.id)}
+                >
+                  <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
           ))
         )}
@@ -205,6 +292,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 14,
     color: '#111827',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 10,
+    color: '#111827',
+  },
+  helperBox: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  helperText: {
+    color: '#4b5563',
+    fontSize: 14,
   },
   emptyText: {
     color: '#6b7280',
@@ -250,16 +354,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
   smallEditButton: {
     backgroundColor: '#2563eb',
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'flex-start',
     paddingHorizontal: 12,
   },
   smallEditButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  smallDeleteButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  smallDeleteButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  optionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  optionButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  optionButtonText: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  optionButtonTextActive: {
+    color: '#fff',
   },
 });
