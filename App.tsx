@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+
 import AuthScreen from './src/screens/AuthScreen';
-import DashboardScreen from './src/screens/DashboardScreen';
+import MainTabs from './src/navigation/MainTabs';
+
 import { getActiveUser, initAuthTables } from './src/utils/auth';
 
 type ActiveUser = {
@@ -46,7 +49,11 @@ export default function App() {
     return <AuthScreen onAuthSuccess={loadSession} />;
   }
 
-  return <DashboardScreen user={activeUser} onLogout={loadSession} />;
+  return (
+    <NavigationContainer>
+      <MainTabs user={activeUser} onLogout={loadSession} />
+    </NavigationContainer>
+  );
 }
 
 const styles = StyleSheet.create({

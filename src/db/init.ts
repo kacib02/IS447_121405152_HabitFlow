@@ -16,7 +16,7 @@ export async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      color ?,
+      color TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
 

@@ -16,8 +16,8 @@ export async function initCategoryTable() {
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      name ?,
-      color ?,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
   `);
@@ -31,22 +31,16 @@ export async function createCategory(name: string, color: string) {
   }
 
   const trimmedName = name.trim();
-  const trimmedColor = color.trim();
- 
+  const trimmedColor = color.trim().toLowerCase();
 
   if (!trimmedName || !trimmedColor) {
     throw new Error('All category fields are required.');
   }
 
   await db.runAsync(
-    `INSERT INTO categories (user_id, name, color, icon, created_at)
-     VALUES (?, ?, ?, ?, ?);`,
-    [
-      activeUser.id,
-      trimmedName,
-      trimmedColor,
-      new Date().toISOString(),
-    ]
+    `INSERT INTO categories (user_id, name, color, created_at)
+     VALUES (?, ?, ?, ?);`,
+    [activeUser.id, trimmedName, trimmedColor, new Date().toISOString()]
   );
 }
 
@@ -61,18 +55,11 @@ export async function updateCategory(
     throw new Error('No active user found.');
   }
 
-  const trimmedName = name.trim();
-  const trimmedColor = color.trim();
-
-  if (!trimmedName || !trimmedColor) {
-    throw new Error('All category fields are required.');
-  }
-
   await db.runAsync(
     `UPDATE categories
-     SET name = ?, color = ?, icon = ?
+     SET name = ?, color = ?
      WHERE id = ? AND user_id = ?;`,
-    [trimmedName, trimmedColor, categoryId, activeUser.id]
+    [name.trim(), color.trim().toLowerCase(), categoryId, activeUser.id]
   );
 }
 
@@ -83,12 +70,9 @@ export async function getCategoriesForActiveUser() {
     return [];
   }
 
-  const rows = await db.getAllAsync<Category>(
-    `SELECT * FROM categories
-     WHERE user_id = ?
-     ORDER BY id DESC;`,
+  return await db.getAllAsync<Category>(
+    `SELECT * FROM categories WHERE user_id = ? ORDER BY id DESC;`,
     [activeUser.id]
   );
-
-  return rows;
 }
+ 

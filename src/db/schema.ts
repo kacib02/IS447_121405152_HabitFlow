@@ -13,7 +13,6 @@ export const categories = sqliteTable('categories', {
   userId: integer('user_id').notNull(),
   name: text('name').notNull(),
   color: text('color').notNull(),
-  icon: text('icon').notNull(),
   createdAt: text('created_at').notNull(),
 });
 
