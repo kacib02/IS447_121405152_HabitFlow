@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { initDatabase } from './src/db/init';
+import { seedDatabase } from './src/db/seed';
 
 import AuthScreen from './src/screens/AuthScreen';
 import MainTabs from './src/navigation/MainTabs';
@@ -25,6 +27,8 @@ export default function App() {
   useEffect(() => {
     const setup = async () => {
       try {
+        await initDatabase();      // new
+        await seedDatabase();      // new
         await initAuthTables();
         await loadSession();
       } catch (error) {
