@@ -8,7 +8,6 @@ export type Category = {
   user_id: number;
   name: string;
   color: string;
-  icon: string;
   created_at: string;
 };
 
@@ -17,15 +16,14 @@ export async function initCategoryTable() {
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      color TEXT NOT NULL,
-      icon TEXT NOT NULL,
+      name ?,
+      color ?,
       created_at TEXT NOT NULL
     );
   `);
 }
 
-export async function createCategory(name: string, color: string, icon: string) {
+export async function createCategory(name: string, color: string) {
   const activeUser = await getActiveUser();
 
   if (!activeUser) {
@@ -34,9 +32,9 @@ export async function createCategory(name: string, color: string, icon: string) 
 
   const trimmedName = name.trim();
   const trimmedColor = color.trim();
-  const trimmedIcon = icon.trim();
+ 
 
-  if (!trimmedName || !trimmedColor || !trimmedIcon) {
+  if (!trimmedName || !trimmedColor) {
     throw new Error('All category fields are required.');
   }
 
@@ -47,7 +45,6 @@ export async function createCategory(name: string, color: string, icon: string) 
       activeUser.id,
       trimmedName,
       trimmedColor,
-      trimmedIcon,
       new Date().toISOString(),
     ]
   );
@@ -56,8 +53,7 @@ export async function createCategory(name: string, color: string, icon: string) 
 export async function updateCategory(
   categoryId: number,
   name: string,
-  color: string,
-  icon: string
+  color: string
 ) {
   const activeUser = await getActiveUser();
 
@@ -67,9 +63,8 @@ export async function updateCategory(
 
   const trimmedName = name.trim();
   const trimmedColor = color.trim();
-  const trimmedIcon = icon.trim();
 
-  if (!trimmedName || !trimmedColor || !trimmedIcon) {
+  if (!trimmedName || !trimmedColor) {
     throw new Error('All category fields are required.');
   }
 
@@ -77,7 +72,7 @@ export async function updateCategory(
     `UPDATE categories
      SET name = ?, color = ?, icon = ?
      WHERE id = ? AND user_id = ?;`,
-    [trimmedName, trimmedColor, trimmedIcon, categoryId, activeUser.id]
+    [trimmedName, trimmedColor, categoryId, activeUser.id]
   );
 }
 

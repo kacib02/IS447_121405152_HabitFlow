@@ -57,10 +57,11 @@ type Props = {
   onLogout: () => Promise<void>;
 };
 
+const CATEGORY_COLORS = ['red', 'blue', 'green', 'purple', 'orange'];
+
 export default function DashboardScreen({ user, onLogout }: Props) {
   const [categoryName, setCategoryName] = useState('');
   const [categoryColor, setCategoryColor] = useState('');
-  const [categoryIcon, setCategoryIcon] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
 
@@ -159,21 +160,15 @@ export default function DashboardScreen({ user, onLogout }: Props) {
   const handleCreateCategory = async () => {
     try {
       if (editingCategoryId) {
-        await updateCategory(
-          editingCategoryId,
-          categoryName,
-          categoryColor,
-          categoryIcon
-        );
+        await updateCategory(editingCategoryId, categoryName, categoryColor);
         Alert.alert('Success', 'Category updated successfully.');
       } else {
-        await createCategory(categoryName, categoryColor, categoryIcon);
+        await createCategory(categoryName, categoryColor);
         Alert.alert('Success', 'Category created successfully.');
       }
 
       setCategoryName('');
       setCategoryColor('');
-      setCategoryIcon('');
       setEditingCategoryId(null);
       await loadCategories();
     } catch (error) {
@@ -187,14 +182,12 @@ export default function DashboardScreen({ user, onLogout }: Props) {
     setEditingCategoryId(category.id);
     setCategoryName(category.name);
     setCategoryColor(category.color);
-    setCategoryIcon(category.icon);
   };
 
   const handleCancelEditCategory = () => {
     setEditingCategoryId(null);
     setCategoryName('');
     setCategoryColor('');
-    setCategoryIcon('');
   };
 
   const handleCreateHabit = async () => {
@@ -434,19 +427,20 @@ export default function DashboardScreen({ user, onLogout }: Props) {
           onChangeText={setCategoryName}
         />
 
-        <FormField
-          label="Colour"
-          placeholder="e.g. Blue"
-          value={categoryColor}
-          onChangeText={setCategoryColor}
-        />
-
-        <FormField
-          label="Icon"
-          placeholder="e.g. heart"
-          value={categoryIcon}
-          onChangeText={setCategoryIcon}
-        />
+        <Text style={styles.label}>Pick Colour</Text>
+        <View style={styles.colorPickerRow}>
+          {CATEGORY_COLORS.map((color) => (
+            <Pressable
+              key={color}
+              onPress={() => setCategoryColor(color)}
+              style={[
+                styles.colorOption,
+                { backgroundColor: color },
+                categoryColor === color && styles.colorSelected,
+              ]}
+            />
+          ))}
+        </View>
 
         <Pressable style={styles.primaryButton} onPress={handleCreateCategory}>
           <Text style={styles.primaryButtonText}>
@@ -472,12 +466,17 @@ export default function DashboardScreen({ user, onLogout }: Props) {
         ) : (
           categories.map((category) => (
             <View key={category.id} style={styles.listItem}>
-              <Text style={styles.listTitle}>
-                {category.icon} {category.name}
-              </Text>
-              <Text style={styles.listSubtitle}>
-                {category.color} · ID: {category.id}
-              </Text>
+              <Text style={styles.listTitle}>{category.name}</Text>
+
+              <View style={styles.colorRow}>
+                <View
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: category.color },
+                  ]}
+                />
+                <Text style={styles.listSubtitle}>ID: {category.id}</Text>
+              </View>
 
               <Pressable
                 style={styles.smallEditButton}
@@ -1093,6 +1092,33 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#fff',
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  colorOption: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+  },
+  colorSelected: {
+    borderWidth: 3,
+    borderColor: '#111827',
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  colorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   insightRow: {
     flexDirection: 'row',
