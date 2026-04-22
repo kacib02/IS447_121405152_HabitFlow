@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import * as SQLite from 'expo-sqlite';
 import {
   createHabitLog,
   deleteHabitLog,
@@ -19,7 +20,26 @@ import {
   initHabitTable,
   Habit,
 } from '../utils/habits';
+import {
+  getCategoriesForActiveUser,
+  initCategoryTable,
+  Category,
+} from '../utils/categories';
 import FormField from '../components/FormField';
+
+const db = SQLite.openDatabaseSync('habitflow.db');
+
+async function updateHabitLog(
+  logId: number,
+  logDate: string,
+  value: number,
+  notes: string
+) {
+  await db.runAsync(
+    `UPDATE habit_logs SET log_date = ?, value = ?, notes = ? WHERE id = ?;`,
+    [logDate.trim(), value, notes.trim() || null, logId]
+  );
+}
 
 export default function LogsScreen() {
   const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
@@ -28,9 +48,11 @@ export default function LogsScreen() {
   const [logNotes, setLogNotes] = useState('');
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editingLogId, setEditingLogId] = useState<number | null>(null);
 
   const [logSearchText, setLogSearchText] = useState('');
-  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterCategoryIdNum, setFilterCategoryIdNum] = useState<number | null>(null);
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
 
@@ -44,12 +66,19 @@ export default function LogsScreen() {
     setHabits(data);
   };
 
+  const loadCategories = async () => {
+    const data = await getCategoriesForActiveUser();
+    setCategories(data);
+  };
+
   useEffect(() => {
     const setup = async () => {
       await initHabitLogTable();
       await initHabitTable();
+      await initCategoryTable();
       await loadHabitLogs();
       await loadHabits();
+      await loadCategories();
     };
     setup();
   }, []);
@@ -59,32 +88,63 @@ export default function LogsScreen() {
     [habits, selectedHabitId]
   );
 
-  const handleCreateHabitLog = async () => {
+  const handleCancelEdit = () => {
+    setEditingLogId(null);
+    setSelectedHabitId(null);
+    setLogDate('');
+    setLogValue('');
+    setLogNotes('');
+  };
+
+  const handleEditLog = (log: HabitLog) => {
+    setEditingLogId(log.id);
+    setSelectedHabitId(log.habit_id);
+    setLogDate(log.log_date);
+    setLogValue(String(log.value));
+    setLogNotes(log.notes ?? '');
+  };
+
+  const handleSaveLog = async () => {
     try {
-      if (!selectedHabit) {
-        throw new Error('Please choose a habit.');
+      if (editingLogId) {
+        const habit = habits.find((h) => h.id === selectedHabitId);
+        const finalValue =
+          habit?.habit_type === 'boolean'
+            ? Number(logValue || '1')
+            : Number(logValue);
+
+        if (!logDate.trim()) throw new Error('Date is required.');
+        if (Number.isNaN(finalValue)) throw new Error('Value must be a number.');
+
+        await updateHabitLog(editingLogId, logDate, finalValue, logNotes);
+        Alert.alert('Success', 'Log updated successfully.');
+      } else {
+        if (!selectedHabit) throw new Error('Please choose a habit.');
+
+        const finalValue =
+          selectedHabit.habit_type === 'boolean'
+            ? Number(logValue || '1')
+            : Number(logValue);
+
+        await createHabitLog(
+          selectedHabit.id,
+          selectedHabit.category_id,
+          logDate,
+          finalValue,
+          logNotes
+        );
+        Alert.alert('Success', 'Habit log created successfully.');
       }
 
-      const finalValue =
-        selectedHabit.habit_type === 'boolean' ? Number(logValue || '1') : Number(logValue);
-
-      await createHabitLog(
-        selectedHabit.id,
-        selectedHabit.category_id,
-        logDate,
-        finalValue,
-        logNotes
-      );
-
+      setEditingLogId(null);
       setSelectedHabitId(null);
       setLogDate('');
       setLogValue('');
       setLogNotes('');
       await loadHabitLogs();
-      Alert.alert('Success', 'Habit log created successfully.');
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Could not create habit log.';
+        error instanceof Error ? error.message : 'Could not save log.';
       Alert.alert('Error', message);
     }
   };
@@ -98,6 +158,7 @@ export default function LogsScreen() {
         onPress: async () => {
           try {
             await deleteHabitLog(logId);
+            if (editingLogId === logId) handleCancelEdit();
             await loadHabitLogs();
           } catch (error) {
             const message =
@@ -111,7 +172,7 @@ export default function LogsScreen() {
 
   const handleResetLogFilters = () => {
     setLogSearchText('');
-    setFilterCategoryId('');
+    setFilterCategoryIdNum(null);
     setFilterFromDate('');
     setFilterToDate('');
   };
@@ -126,8 +187,8 @@ export default function LogsScreen() {
       log.notes?.toLowerCase().includes(searchValue);
 
     const matchesCategory =
-      filterCategoryId.trim() === '' ||
-      log.category_id === Number(filterCategoryId);
+      filterCategoryIdNum === null ||
+      log.category_id === filterCategoryIdNum;
 
     const matchesFromDate =
       filterFromDate.trim() === '' || log.log_date >= filterFromDate.trim();
@@ -135,61 +196,70 @@ export default function LogsScreen() {
     const matchesToDate =
       filterToDate.trim() === '' || log.log_date <= filterToDate.trim();
 
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesFromDate &&
-      matchesToDate
-    );
+    return matchesSearch && matchesCategory && matchesFromDate && matchesToDate;
   });
+
+  const editingLog = habitLogs.find((l) => l.id === editingLogId) ?? null;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Logs</Text>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Log Habit Activity</Text>
+        <Text style={styles.sectionTitle}>
+          {editingLogId ? 'Edit Log' : 'Log Habit Activity'}
+        </Text>
 
-        <Text style={styles.label}>Choose Habit</Text>
-        {habits.length === 0 ? (
-          <Text style={styles.emptyText}>No habits yet. Create a habit first.</Text>
-        ) : (
-          <View style={styles.choiceWrap}>
-            {habits.map((habit) => (
-              <Pressable
-                key={habit.id}
-                style={[
-                  styles.choiceChip,
-                  selectedHabitId === habit.id && styles.choiceChipActive,
-                ]}
-                onPress={() => setSelectedHabitId(habit.id)}
-              >
-                <Text
-                  style={[
-                    styles.choiceChipText,
-                    selectedHabitId === habit.id && styles.choiceChipTextActive,
-                  ]}
-                >
-                  {habit.title}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {selectedHabit ? (
+        {editingLog ? (
           <View style={styles.helperBox}>
             <Text style={styles.helperText}>
-              Category: {selectedHabit.category_name}
-            </Text>
-            <Text style={styles.helperText}>
-              Tracking: {selectedHabit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
-            </Text>
-            <Text style={styles.helperText}>
-              Unit: {selectedHabit.habit_type === 'boolean' ? 'Completed' : selectedHabit.unit}
+              Editing: {editingLog.habit_title} · {editingLog.log_date}
             </Text>
           </View>
-        ) : null}
+        ) : (
+          <>
+            <Text style={styles.label}>Choose Habit</Text>
+            {habits.length === 0 ? (
+              <Text style={styles.emptyText}>No habits yet. Create a habit first.</Text>
+            ) : (
+              <View style={styles.choiceWrap}>
+                {habits.map((habit) => (
+                  <Pressable
+                    key={habit.id}
+                    style={[
+                      styles.choiceChip,
+                      selectedHabitId === habit.id && styles.choiceChipActive,
+                    ]}
+                    onPress={() => setSelectedHabitId(habit.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceChipText,
+                        selectedHabitId === habit.id && styles.choiceChipTextActive,
+                      ]}
+                    >
+                      {habit.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {selectedHabit ? (
+              <View style={styles.helperBox}>
+                <Text style={styles.helperText}>
+                  Category: {selectedHabit.category_name}
+                </Text>
+                <Text style={styles.helperText}>
+                  Tracking: {selectedHabit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
+                </Text>
+                <Text style={styles.helperText}>
+                  Unit: {selectedHabit.habit_type === 'boolean' ? 'Completed' : selectedHabit.unit}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        )}
 
         <FormField
           label="Log Date"
@@ -198,45 +268,55 @@ export default function LogsScreen() {
           onChangeText={setLogDate}
         />
 
-        {selectedHabit?.habit_type === 'boolean' ? (
-          <>
-            <Text style={styles.label}>Completed?</Text>
-            <View style={styles.buttonRow}>
-              <Pressable
-                style={[
-                  styles.optionButton,
-                  logValue === '1' && styles.optionButtonActive,
-                ]}
-                onPress={() => setLogValue('1')}
-              >
-                <Text
+        {selectedHabit?.habit_type === 'boolean' || editingLog ? (
+          editingLog ? (
+            <FormField
+              label="Value"
+              placeholder="e.g. 1"
+              value={logValue}
+              onChangeText={setLogValue}
+              keyboardType="numeric"
+            />
+          ) : (
+            <>
+              <Text style={styles.label}>Completed?</Text>
+              <View style={styles.buttonRow}>
+                <Pressable
                   style={[
-                    styles.optionButtonText,
-                    logValue === '1' && styles.optionButtonTextActive,
+                    styles.optionButton,
+                    logValue === '1' && styles.optionButtonActive,
                   ]}
+                  onPress={() => setLogValue('1')}
                 >
-                  Yes
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.optionButtonText,
+                      logValue === '1' && styles.optionButtonTextActive,
+                    ]}
+                  >
+                    Yes
+                  </Text>
+                </Pressable>
 
-              <Pressable
-                style={[
-                  styles.optionButton,
-                  logValue === '0' && styles.optionButtonActive,
-                ]}
-                onPress={() => setLogValue('0')}
-              >
-                <Text
+                <Pressable
                   style={[
-                    styles.optionButtonText,
-                    logValue === '0' && styles.optionButtonTextActive,
+                    styles.optionButton,
+                    logValue === '0' && styles.optionButtonActive,
                   ]}
+                  onPress={() => setLogValue('0')}
                 >
-                  No
-                </Text>
-              </Pressable>
-            </View>
-          </>
+                  <Text
+                    style={[
+                      styles.optionButtonText,
+                      logValue === '0' && styles.optionButtonTextActive,
+                    ]}
+                  >
+                    No
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )
         ) : (
           <FormField
             label="Value"
@@ -254,9 +334,17 @@ export default function LogsScreen() {
           onChangeText={setLogNotes}
         />
 
-        <Pressable style={styles.primaryButton} onPress={handleCreateHabitLog}>
-          <Text style={styles.primaryButtonText}>Add Habit Log</Text>
+        <Pressable style={styles.primaryButton} onPress={handleSaveLog}>
+          <Text style={styles.primaryButtonText}>
+            {editingLogId ? 'Save Changes' : 'Add Habit Log'}
+          </Text>
         </Pressable>
+
+        {editingLogId ? (
+          <Pressable style={styles.secondaryButton} onPress={handleCancelEdit}>
+            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -269,13 +357,37 @@ export default function LogsScreen() {
           onChangeText={setLogSearchText}
         />
 
-        <FormField
-          label="Category ID"
-          placeholder="Filter by category ID"
-          value={filterCategoryId}
-          onChangeText={setFilterCategoryId}
-          keyboardType="numeric"
-        />
+        <Text style={styles.label}>Filter by Category</Text>
+        {categories.length === 0 ? (
+          <Text style={styles.emptyText}>No categories yet.</Text>
+        ) : (
+          <View style={styles.choiceWrap}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                style={[
+                  styles.choiceChip,
+                  filterCategoryIdNum === cat.id && styles.choiceChipActive,
+                ]}
+                onPress={() =>
+                  setFilterCategoryIdNum(
+                    filterCategoryIdNum === cat.id ? null : cat.id
+                  )
+                }
+              >
+                <View style={[styles.colorDot, { backgroundColor: cat.color }]} />
+                <Text
+                  style={[
+                    styles.choiceChipText,
+                    filterCategoryIdNum === cat.id && styles.choiceChipTextActive,
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <FormField
           label="From Date"
@@ -291,10 +403,7 @@ export default function LogsScreen() {
           onChangeText={setFilterToDate}
         />
 
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={handleResetLogFilters}
-        >
+        <Pressable style={styles.secondaryButton} onPress={handleResetLogFilters}>
           <Text style={styles.secondaryButtonText}>Reset Filters</Text>
         </Pressable>
       </View>
@@ -322,12 +431,21 @@ export default function LogsScreen() {
                 <Text style={styles.listSubtitle}>Notes: {log.notes}</Text>
               ) : null}
 
-              <Pressable
-                style={styles.smallDeleteButton}
-                onPress={() => handleDeleteLog(log.id)}
-              >
-                <Text style={styles.smallDeleteButtonText}>Delete Log</Text>
-              </Pressable>
+              <View style={styles.actionRow}>
+                <Pressable
+                  style={styles.smallEditButton}
+                  onPress={() => handleEditLog(log)}
+                >
+                  <Text style={styles.smallEditButtonText}>Edit</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.smallDeleteButton}
+                  onPress={() => handleDeleteLog(log.id)}
+                >
+                  <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                </Pressable>
+              </View>
             </View>
           ))
         )}
@@ -425,12 +543,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  smallEditButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  smallEditButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   smallDeleteButton: {
     backgroundColor: '#ef4444',
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'flex-start',
     paddingHorizontal: 12,
   },
   smallDeleteButtonText: {
@@ -468,6 +599,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   choiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 999,
@@ -485,5 +618,11 @@ const styles = StyleSheet.create({
   },
   choiceChipTextActive: {
     color: '#fff',
+  },
+  colorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginRight: 6,
   },
 });
