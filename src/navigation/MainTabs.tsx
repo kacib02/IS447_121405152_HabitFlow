@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
+import HomeScreen from '../screens/HomeScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import HabitsScreen from '../screens/HabitsScreen';
 import LogsScreen from '../screens/LogsScreen';
@@ -40,6 +41,9 @@ export default function MainTabs({ user, onLogout }: Props) {
         tabBarIcon: ({ color, size, focused }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'ellipse';
 
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+}
           if (route.name === 'Categories') {
             iconName = focused ? 'grid' : 'grid-outline';
           } else if (route.name === 'Habits') {
@@ -58,6 +62,7 @@ export default function MainTabs({ user, onLogout }: Props) {
         },
       })}
     >
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Categories" component={CategoriesScreen} />
       <Tab.Screen name="Habits" component={HabitsScreen} />
       <Tab.Screen name="Logs" component={LogsScreen} />
