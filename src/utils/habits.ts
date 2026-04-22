@@ -1,7 +1,7 @@
-import * as SQLite from 'expo-sqlite';
+import { and, desc, eq } from 'drizzle-orm';
+import { db } from '../db';
+import { habits, categories } from '../db/schema';
 import { getActiveUser } from './auth';
-
-const db = SQLite.openDatabaseSync('habitflow.db');
 
 export type Habit = {
   id: number;
@@ -17,19 +17,7 @@ export type Habit = {
 };
 
 export async function initHabitTable() {
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS habits (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      category_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT,
-      habit_type TEXT NOT NULL,
-      unit TEXT NOT NULL,
-      is_archived INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL
-    );
-  `);
+  return;
 }
 
 export async function createHabit(
@@ -58,20 +46,16 @@ export async function createHabit(
     throw new Error('Habit type must be either boolean or count.');
   }
 
-  await db.runAsync(
-    `INSERT INTO habits (
-      user_id, category_id, title, description, habit_type, unit, is_archived, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 0, ?);`,
-    [
-      activeUser.id,
-      categoryId,
-      trimmedTitle,
-      trimmedDescription || null,
-      trimmedHabitType,
-      trimmedUnit,
-      new Date().toISOString(),
-    ]
-  );
+  await db.insert(habits).values({
+    userId: activeUser.id,
+    categoryId,
+    title: trimmedTitle,
+    description: trimmedDescription || null,
+    habitType: trimmedHabitType as 'boolean' | 'count',
+    unit: trimmedUnit,
+    isArchived: 0,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function updateHabit(
@@ -101,20 +85,21 @@ export async function updateHabit(
     throw new Error('Habit type must be either boolean or count.');
   }
 
-  await db.runAsync(
-    `UPDATE habits
-     SET category_id = ?, title = ?, description = ?, habit_type = ?, unit = ?
-     WHERE id = ? AND user_id = ?;`,
-    [
+  await db
+    .update(habits)
+    .set({
       categoryId,
-      trimmedTitle,
-      trimmedDescription || null,
-      trimmedHabitType,
-      trimmedUnit,
-      habitId,
-      activeUser.id,
-    ]
-  );
+      title: trimmedTitle,
+      description: trimmedDescription || null,
+      habitType: trimmedHabitType as 'boolean' | 'count',
+      unit: trimmedUnit,
+    })
+    .where(
+      and(
+        eq(habits.id, habitId),
+        eq(habits.userId, activeUser.id)
+      )
+    );
 }
 
 export async function deleteHabit(habitId: number) {
@@ -124,28 +109,51 @@ export async function deleteHabit(habitId: number) {
     throw new Error('No active user found.');
   }
 
-  await db.runAsync(
-    `DELETE FROM habits
-     WHERE id = ? AND user_id = ?;`,
-    [habitId, activeUser.id]
-  );
+  await db
+    .delete(habits)
+    .where(
+      and(
+        eq(habits.id, habitId),
+        eq(habits.userId, activeUser.id)
+      )
+    );
 }
 
-export async function getHabitsForActiveUser() {
+export async function getHabitsForActiveUser(): Promise<Habit[]> {
   const activeUser = await getActiveUser();
 
   if (!activeUser) {
     return [];
   }
 
-  const rows = await db.getAllAsync<Habit>(
-    `SELECT habits.*, categories.name AS category_name
-     FROM habits
-     INNER JOIN categories ON habits.category_id = categories.id
-     WHERE habits.user_id = ?
-     ORDER BY habits.id DESC;`,
-    [activeUser.id]
-  );
+  const rows = await db
+    .select({
+      id: habits.id,
+      userId: habits.userId,
+      categoryId: habits.categoryId,
+      title: habits.title,
+      description: habits.description,
+      habitType: habits.habitType,
+      unit: habits.unit,
+      isArchived: habits.isArchived,
+      createdAt: habits.createdAt,
+      categoryName: categories.name,
+    })
+    .from(habits)
+    .innerJoin(categories, eq(habits.categoryId, categories.id))
+    .where(eq(habits.userId, activeUser.id))
+    .orderBy(desc(habits.id));
 
-  return rows;
+  return rows.map((row) => ({
+    id: row.id,
+    user_id: row.userId,
+    category_id: row.categoryId,
+    title: row.title,
+    description: row.description,
+    habit_type: row.habitType,
+    unit: row.unit,
+    is_archived: row.isArchived,
+    created_at: row.createdAt,
+    category_name: row.categoryName,
+  }));
 }

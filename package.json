@@ -11,7 +11,12 @@
   "jest": {
     "testEnvironment": "node",
     "transform": {
-      "^.+\\.[jt]sx?$": ["babel-jest", {"configFile": "./babel.config.js"}]
+      "^.+\\.[jt]sx?$": [
+        "babel-jest",
+        {
+          "configFile": "./babel.config.js"
+        }
+      ]
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(jest-)?react-native|@react-native|@react-native-community|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|@testing-library|drizzle-orm)"
@@ -22,9 +27,15 @@
       "^expo-sqlite$": "<rootDir>/__mocks__/expo-winter.js",
       "^react-native$": "<rootDir>/__mocks__/react-native.js"
     },
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx"]
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx"
+    ]
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.11",

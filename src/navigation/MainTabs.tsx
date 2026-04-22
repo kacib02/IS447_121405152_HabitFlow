@@ -1,7 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import HomeScreen from '../screens/HomeScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import HabitsScreen from '../screens/HabitsScreen';
 import LogsScreen from '../screens/LogsScreen';
@@ -62,7 +61,7 @@ export default function MainTabs({ user, onLogout }: Props) {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+
       <Tab.Screen name="Categories" component={CategoriesScreen} />
       <Tab.Screen name="Habits" component={HabitsScreen} />
       <Tab.Screen name="Logs" component={LogsScreen} />

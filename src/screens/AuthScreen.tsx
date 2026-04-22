@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
 import { loginUser, registerUser } from '../utils/auth';
+import { g, colors } from '../styles/GlobalStyles';
+
 
 type Props = {
   onAuthSuccess: () => Promise<void>;
@@ -16,19 +18,13 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
     try {
       if (isLoginMode) {
         await loginUser(email, password);
-        Alert.alert('Success', 'Logged in successfully.');
       } else {
         await registerUser(name, email, password);
-        Alert.alert('Success', 'Account created successfully.');
       }
-
-      setName('');
-      setEmail('');
-      setPassword('');
+      setName(''); setEmail(''); setPassword('');
       await onAuthSuccess();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Something went wrong.';
+      const message = error instanceof Error ? error.message : 'Something went wrong.';
       Alert.alert('Error', message);
     }
   };
@@ -42,41 +38,53 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
 
       {!isLoginMode && (
         <TextInput
-          style={styles.input}
+          style={g.input}
           placeholder="Name"
           value={name}
           onChangeText={setName}
+          accessibilityLabel="Name"
+          accessibilityHint="Enter your full name"
         />
       )}
 
       <TextInput
-        style={styles.input}
+        style={g.input}
         placeholder="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
+        accessibilityLabel="Email"
+        accessibilityHint="Enter your email address"
       />
 
       <TextInput
-        style={styles.input}
+        style={g.input}
         placeholder="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        accessibilityLabel="Password"
+        accessibilityHint="Enter your password"
       />
 
-      <Pressable style={styles.primaryButton} onPress={handleSubmit}>
-        <Text style={styles.primaryButtonText}>
-          {isLoginMode ? 'Login' : 'Register'}
-        </Text>
+      <Pressable
+        style={g.primaryButton}
+        onPress={handleSubmit}
+        accessibilityLabel={isLoginMode ? 'Login' : 'Register'}
+        accessibilityRole="button"
+      >
+        <Text style={g.primaryButtonText}>{isLoginMode ? 'Login' : 'Register'}</Text>
       </Pressable>
 
-      <Pressable onPress={() => setIsLoginMode(!isLoginMode)}>
+      <Pressable
+        onPress={() => setIsLoginMode(!isLoginMode)}
+        accessibilityLabel={isLoginMode ? 'Switch to register' : 'Switch to login'}
+        accessibilityRole="button"
+        style={styles.linkButton}
+      >
         <Text style={styles.linkText}>
-          {isLoginMode
-            ? "Don't have an account? Register"
-            : 'Already have an account? Login'}
+          {isLoginMode ? "Don't have an account? Register" : 'Already have an account? Login'}
         </Text>
       </Pressable>
     </View>
@@ -88,45 +96,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 4,
+    color: colors.black,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: colors.black,
     marginBottom: 24,
-    textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-  },
-  primaryButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
+  linkButton: {
+    marginTop: 12,
+    alignItems: 'center',
   },
   linkText: {
-    textAlign: 'center',
-    color: '#2563eb',
+    fontSize: 14,
+    color: colors.primary,
     fontWeight: '500',
   },
 });

@@ -1,39 +1,32 @@
-import { Text, TextInput, StyleSheet, View, TextInputProps } from 'react-native';
+import { Text, TextInput, View, TextInputProps } from 'react-native';
+import { g, lightColors, darkColors } from '../styles/GlobalStyles';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = TextInputProps & {
   label: string;
 };
 
 export default function FormField({ label, ...props }: Props) {
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
+
   return (
-    <View style={styles.wrapper}>
-      <Text style={styles.label}>{label}</Text>
+    <View>
+      <Text style={[g.label, { color: colors.black }]}>{label}</Text>
       <TextInput
-        style={styles.input}
-        placeholderTextColor="#9ca3af"
+        style={[
+          g.input,
+          {
+            color: colors.black,
+            backgroundColor: colors.white,
+            borderColor: colors.border,
+          },
+        ]}
+        placeholderTextColor={theme === 'dark' ? '#9ca3af' : '#999'}
+        accessibilityLabel={label}
+        accessibilityHint={props.placeholder}
         {...props}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-    color: '#111827',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    color: '#111827',
-  },
-});

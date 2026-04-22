@@ -1,16 +1,17 @@
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { logoutUser, deleteCurrentUser } from '../utils/auth';
+import { g, lightColors, darkColors } from '../styles/GlobalStyles';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = {
-  user: {
-    id: number;
-    name: string;
-    email: string;
-  };
+  user: { id: number; name: string; email: string };
   onLogout: () => Promise<void>;
 };
 
 export default function ProfileScreen({ user, onLogout }: Props) {
+  const { theme, toggleTheme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
+
   const handleLogout = async () => {
     await logoutUser();
     await onLogout();
@@ -31,21 +32,47 @@ export default function ProfileScreen({ user, onLogout }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[g.pageTitle, { color: colors.black }]}>Profile</Text>
 
-      <Text style={styles.label}>Name</Text>
-      <Text style={styles.value}>{user.name}</Text>
+      <Text style={[g.label, { color: colors.black }]}>Name</Text>
+      <Text style={[g.bodyText, { color: colors.black }]} accessibilityLabel={`Name: ${user.name}`}>
+        {user.name}
+      </Text>
 
-      <Text style={styles.label}>Email</Text>
-      <Text style={styles.value}>{user.email}</Text>
+      <Text style={[g.label, { color: colors.black }]}>Email</Text>
+      <Text style={[g.bodyText, { color: colors.black }]} accessibilityLabel={`Email: ${user.email}`}>
+        {user.email}
+      </Text>
 
-      <Pressable style={styles.button} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Logout</Text>
+      {/* Dark Mode Toggle */}
+      <Pressable
+        style={g.secondaryButton}
+        onPress={toggleTheme}
+        accessibilityLabel="Toggle dark mode"
+        accessibilityRole="button"
+      >
+        <Text style={[g.secondaryButtonText, { color: colors.black }]}>
+          Switch to {theme === 'light' ? 'Dark' : 'Light'} Mode
+        </Text>
       </Pressable>
 
-      <Pressable style={styles.deleteButton} onPress={handleDelete}>
-        <Text style={styles.buttonText}>Delete Account</Text>
+      <Pressable
+        style={g.primaryButton}
+        onPress={handleLogout}
+        accessibilityLabel="Logout"
+        accessibilityRole="button"
+      >
+        <Text style={g.primaryButtonText}>Logout</Text>
+      </Pressable>
+
+      <Pressable
+        style={g.dangerButton}
+        onPress={handleDelete}
+        accessibilityLabel="Delete account"
+        accessibilityRole="button"
+      >
+        <Text style={g.dangerButtonText}>Delete Account</Text>
       </Pressable>
     </View>
   );
@@ -53,42 +80,7 @@ export default function ProfileScreen({ user, onLogout }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f9fafb',
     flex: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 40,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 10,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 10,
-    marginTop: 24,
-  },
-  deleteButton: {
-    backgroundColor: '#dc2626',
-    padding: 14,
-    borderRadius: 10,
-    marginTop: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
+    padding: 16,
   },
 });

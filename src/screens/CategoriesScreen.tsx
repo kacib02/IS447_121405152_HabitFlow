@@ -1,27 +1,17 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import {
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getCategoriesForActiveUser,
-  initCategoryTable,
-  Category,
-} from '../utils/categories';
-import FormField from '../components/FormField';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView, TextInput } from 'react-native';
+import { createCategory, updateCategory, deleteCategory, getCategoriesForActiveUser, initCategoryTable, Category } from '../utils/categories';
+import { g, lightColors, darkColors } from '../styles/GlobalStyles';
+import { useTheme } from '../context/ThemeContext';
 
-const CATEGORY_COLORS = ['red', 'blue', 'green', 'purple', 'orange'];
+const CATEGORY_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#7c3aed', '#ea580c'];
 
 export default function CategoriesScreen() {
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
+
   const [categoryName, setCategoryName] = useState('');
-  const [categoryColor, setCategoryColor] = useState('blue');
+  const [categoryColor, setCategoryColor] = useState('#2563eb');
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
 
@@ -42,20 +32,15 @@ export default function CategoriesScreen() {
     try {
       if (editingCategoryId) {
         await updateCategory(editingCategoryId, categoryName, categoryColor);
-        Alert.alert('Success', 'Category updated successfully.');
       } else {
         await createCategory(categoryName, categoryColor);
-        Alert.alert('Success', 'Category created successfully.');
       }
-
       setCategoryName('');
-      setCategoryColor('blue');
+      setCategoryColor('#2563eb');
       setEditingCategoryId(null);
       await loadCategories();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not save category.';
-      Alert.alert('Error', message);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Could not save category.');
     }
   };
 
@@ -66,115 +51,124 @@ export default function CategoriesScreen() {
   };
 
   const handleDeleteCategory = (categoryId: number) => {
-    Alert.alert(
-      'Delete Category',
-      'Are you sure you want to delete this category?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCategory(categoryId);
-              if (editingCategoryId === categoryId) {
-                handleCancelEdit();
-              }
-              await loadCategories();
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : 'Could not delete category.';
-              Alert.alert('Error', message);
-            }
-          },
+    Alert.alert('Delete Category', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCategory(categoryId);
+            if (editingCategoryId === categoryId) handleCancelEdit();
+            await loadCategories();
+          } catch (error) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'Could not delete category.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleCancelEdit = () => {
     setEditingCategoryId(null);
     setCategoryName('');
-    setCategoryColor('blue');
+    setCategoryColor('#2563eb');
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Categories</Text>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[g.pageTitle, { color: colors.black }]}>Categories</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
-          {editingCategoryId ? 'Edit Category' : 'Create Category'}
+      <View style={[g.section, { borderTopColor: colors.border }]}>
+        <Text style={[g.sectionTitle, { color: colors.black }]}>
+          {editingCategoryId ? 'Edit Category' : 'New Category'}
         </Text>
 
-        <FormField
-          label="Category Name"
+        <Text style={[g.label, { color: colors.black }]}>Name</Text>
+        <TextInput
+          style={[
+            g.input,
+            {
+              color: colors.black,
+              backgroundColor: colors.white,
+              borderColor: colors.border,
+            },
+          ]}
           placeholder="e.g. Health"
+          placeholderTextColor={theme === 'dark' ? '#9ca3af' : '#999'}
           value={categoryName}
           onChangeText={setCategoryName}
+          accessibilityLabel="Category name"
         />
 
-        <Text style={styles.label}>Pick Colour</Text>
-        <View style={styles.colorPickerRow}>
+        <Text style={[g.label, { color: colors.black }]}>Colour</Text>
+        <View style={styles.colorRow}>
           {CATEGORY_COLORS.map((color) => (
             <Pressable
               key={color}
               onPress={() => setCategoryColor(color)}
+              accessibilityLabel={`Select colour ${color}`}
+              accessibilityRole="button"
               style={[
-                styles.colorOption,
+                styles.colorSwatch,
                 { backgroundColor: color },
-                categoryColor === color && styles.colorSelected,
+                categoryColor === color && [styles.colorSwatchSelected, { borderColor: colors.black }],
               ]}
             />
           ))}
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={handleSaveCategory}>
-          <Text style={styles.primaryButtonText}>
-            {editingCategoryId ? 'Save Category' : 'Add Category'}
-          </Text>
+        <Pressable
+          style={g.primaryButton}
+          onPress={handleSaveCategory}
+          accessibilityLabel={editingCategoryId ? 'Save category' : 'Add category'}
+          accessibilityRole="button"
+        >
+          <Text style={g.primaryButtonText}>{editingCategoryId ? 'Save' : 'Add Category'}</Text>
         </Pressable>
 
         {editingCategoryId ? (
-          <Pressable style={styles.secondaryButton} onPress={handleCancelEdit}>
-            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          <Pressable
+            style={[g.secondaryButton, { backgroundColor: colors.white, borderColor: colors.border }]}
+            onPress={handleCancelEdit}
+            accessibilityLabel="Cancel edit"
+            accessibilityRole="button"
+          >
+            <Text style={[g.secondaryButtonText, { color: colors.black }]}>Cancel</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Your Categories</Text>
+      <View style={[g.section, { borderTopColor: colors.border }]}>
+        <Text style={[g.sectionTitle, { color: colors.black }]}>Your Categories</Text>
 
         {categories.length === 0 ? (
-          <Text style={styles.emptyText}>No categories yet.</Text>
+          <Text style={[g.emptyText, { color: colors.black }]}>No categories yet.</Text>
         ) : (
           categories.map((category) => (
-            <View key={category.id} style={styles.listItem}>
-              <Text style={styles.listTitle}>{category.name}</Text>
-
-              <View style={styles.colorRow}>
-                <View
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: category.color },
-                  ]}
-                />
-                <Text style={styles.listSubtitle}>ID: {category.id}</Text>
+            <View key={category.id} style={[g.listItem, { borderBottomColor: colors.border }]}>
+              <View style={styles.catRow}>
+                <View style={[styles.colorDot, { backgroundColor: category.color }]} />
+                <Text style={[g.listTitle, { color: colors.black }]}>{category.name}</Text>
               </View>
 
-              <View style={styles.actionRow}>
+              <View style={g.actionRow}>
                 <Pressable
-                  style={styles.smallEditButton}
+                  style={g.smallPrimaryButton}
                   onPress={() => handleEditCategory(category)}
+                  accessibilityLabel={`Edit ${category.name}`}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.smallEditButtonText}>Edit</Text>
+                  <Text style={g.smallPrimaryButtonText}>Edit</Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.smallDeleteButton}
+                  style={g.smallDangerButton}
                   onPress={() => handleDeleteCategory(category.id)}
+                  accessibilityLabel={`Delete ${category.name}`}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                  <Text style={g.smallDangerButtonText}>Delete</Text>
                 </Pressable>
               </View>
             </View>
@@ -187,131 +181,30 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f9fafb',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 40,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: '#fff',
     padding: 16,
-    borderRadius: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 14,
-    color: '#111827',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 10,
-    color: '#111827',
-  },
-  emptyText: {
-    color: '#6b7280',
-    fontSize: 15,
-  },
-  listItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  listTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  listSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  primaryButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  secondaryButtonText: {
-    color: '#111827',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  smallEditButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 10,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  smallEditButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  smallDeleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 10,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  smallDeleteButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  colorPickerRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  colorOption: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-  },
-  colorSelected: {
-    borderWidth: 3,
-    borderColor: '#111827',
   },
   colorRow: {
     flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  colorSwatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 4,
+  },
+  colorSwatchSelected: {
+    borderWidth: 3,
+  },
+  catRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
+    marginBottom: 4,
   },
   colorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    width: 12,
+    height: 12,
+    borderRadius: 2,
   },
 });

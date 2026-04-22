@@ -8,6 +8,8 @@ import AuthScreen from './src/screens/AuthScreen';
 import MainTabs from './src/navigation/MainTabs';
 
 import { getActiveUser, initAuthTables } from './src/utils/auth';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { lightColors, darkColors } from './src/styles/GlobalStyles';
 
 type ActiveUser = {
   id: number;
@@ -15,9 +17,11 @@ type ActiveUser = {
   email: string;
 } | null;
 
-export default function App() {
+function AppContent() {
   const [loading, setLoading] = useState(true);
   const [activeUser, setActiveUser] = useState<ActiveUser>(null);
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
 
   const loadSession = async () => {
     const user = await getActiveUser();
@@ -27,8 +31,8 @@ export default function App() {
   useEffect(() => {
     const setup = async () => {
       try {
-        await initDatabase();      // new
-        await seedDatabase();      // new
+        await initDatabase();
+        await seedDatabase();
         await initAuthTables();
         await loadSession();
       } catch (error) {
@@ -43,8 +47,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.loaderContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -57,6 +61,14 @@ export default function App() {
     <NavigationContainer>
       <MainTabs user={activeUser} onLogout={loadSession} />
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

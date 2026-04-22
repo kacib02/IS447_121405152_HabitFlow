@@ -7,8 +7,13 @@ import {
   InsightSummary,
   DailyChartItem,
 } from '../utils/insights';
+import { lightColors, darkColors } from '../styles/GlobalStyles';
+import { useTheme } from '../context/ThemeContext';
 
 export default function InsightsScreen() {
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
+
   const [summary, setSummary] = useState<InsightSummary>({
     todayCount: 0,
     weekCount: 0,
@@ -29,32 +34,54 @@ export default function InsightsScreen() {
   const maxChartValue = Math.max(...chartData.map((item) => item.total), 1);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Insights</Text>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.black }]}>Insights</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Summary</Text>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.black }]}>Summary</Text>
 
         <View style={styles.insightRow}>
-          <View style={styles.insightBox}>
-            <Text style={styles.insightNumber}>{summary.todayCount}</Text>
-            <Text style={styles.insightLabel}>Today</Text>
+          <View style={[styles.insightBox, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.insightNumber, { color: colors.black }]}>
+              {summary.todayCount}
+            </Text>
+            <Text style={[styles.insightLabel, { color: colors.black }]}>Today</Text>
           </View>
 
-          <View style={styles.insightBox}>
-            <Text style={styles.insightNumber}>{summary.weekCount}</Text>
-            <Text style={styles.insightLabel}>This Week</Text>
+          <View style={[styles.insightBox, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.insightNumber, { color: colors.black }]}>
+              {summary.weekCount}
+            </Text>
+            <Text style={[styles.insightLabel, { color: colors.black }]}>This Week</Text>
           </View>
 
-          <View style={styles.insightBox}>
-            <Text style={styles.insightNumber}>{summary.monthCount}</Text>
-            <Text style={styles.insightLabel}>This Month</Text>
+          <View style={[styles.insightBox, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.insightNumber, { color: colors.black }]}>
+              {summary.monthCount}
+            </Text>
+            <Text style={[styles.insightLabel, { color: colors.black }]}>This Month</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Last 7 Days</Text>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.black }]}>Last 7 Days</Text>
 
         <View style={styles.chartContainer}>
           {chartData.map((item) => {
@@ -63,10 +90,22 @@ export default function InsightsScreen() {
             return (
               <View key={item.label} style={styles.chartItem}>
                 <View style={styles.chartBarArea}>
-                  <View style={[styles.chartBar, { height: barHeight }]} />
+                  <View
+                    style={[
+                      styles.chartBar,
+                      {
+                        height: barHeight,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
                 </View>
-                <Text style={styles.chartValue}>{item.total}</Text>
-                <Text style={styles.chartLabel}>{item.label}</Text>
+                <Text style={[styles.chartValue, { color: colors.black }]}>
+                  {item.total}
+                </Text>
+                <Text style={[styles.chartLabel, { color: colors.black }]}>
+                  {item.label}
+                </Text>
               </View>
             );
           })}
@@ -79,7 +118,6 @@ export default function InsightsScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f9fafb',
   },
   title: {
     fontSize: 28,
@@ -89,18 +127,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 14,
-    color: '#111827',
   },
   insightRow: {
     flexDirection: 'row',
@@ -109,7 +144,6 @@ const styles = StyleSheet.create({
   },
   insightBox: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 10,
@@ -118,12 +152,10 @@ const styles = StyleSheet.create({
   insightNumber: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
   },
   insightLabel: {
     marginTop: 4,
     fontSize: 13,
-    color: '#6b7280',
     fontWeight: '500',
   },
   chartContainer: {
@@ -146,17 +178,14 @@ const styles = StyleSheet.create({
     width: 26,
     maxWidth: 26,
     minHeight: 4,
-    backgroundColor: '#2563eb',
     borderRadius: 6,
   },
   chartValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
     marginBottom: 4,
   },
   chartLabel: {
     fontSize: 11,
-    color: '#6b7280',
   },
 });

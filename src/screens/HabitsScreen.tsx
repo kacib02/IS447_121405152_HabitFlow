@@ -1,47 +1,26 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import {
-  createHabit,
-  updateHabit,
-  deleteHabit,
-  getHabitsForActiveUser,
-  initHabitTable,
-  Habit,
-} from '../utils/habits';
-import {
-  getCategoriesForActiveUser,
-  initCategoryTable,
-  Category,
-} from '../utils/categories';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { createHabit, updateHabit, deleteHabit, getHabitsForActiveUser, initHabitTable, Habit } from '../utils/habits';
+import { getCategoriesForActiveUser, initCategoryTable, Category } from '../utils/categories';
 import FormField from '../components/FormField';
+import { g, lightColors, darkColors } from '../styles/GlobalStyles';
+import { useTheme } from '../context/ThemeContext';
 
 export default function HabitsScreen() {
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? darkColors : lightColors;
+
   const [habitTitle, setHabitTitle] = useState('');
   const [habitDescription, setHabitDescription] = useState('');
   const [trackingStyle, setTrackingStyle] = useState<'boolean' | 'count'>('count');
   const [habitUnit, setHabitUnit] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-
   const [habits, setHabits] = useState<Habit[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
 
-  const loadHabits = async () => {
-    const data = await getHabitsForActiveUser();
-    setHabits(data);
-  };
-
-  const loadCategories = async () => {
-    const data = await getCategoriesForActiveUser();
-    setCategories(data);
-  };
+  const loadHabits = async () => { setHabits(await getHabitsForActiveUser()); };
+  const loadCategories = async () => { setCategories(await getCategoriesForActiveUser()); };
 
   useEffect(() => {
     const setup = async () => {
@@ -56,32 +35,12 @@ export default function HabitsScreen() {
   const handleSaveHabit = async () => {
     try {
       const finalUnit = trackingStyle === 'boolean' ? 'completed' : habitUnit;
-
-      if (!selectedCategoryId) {
-        throw new Error('Please choose a category.');
-      }
-
+      if (!selectedCategoryId) throw new Error('Please choose a category.');
       if (editingHabitId) {
-        await updateHabit(
-          editingHabitId,
-          habitTitle,
-          habitDescription,
-          trackingStyle,
-          finalUnit,
-          selectedCategoryId
-        );
-        Alert.alert('Success', 'Habit updated successfully.');
+        await updateHabit(editingHabitId, habitTitle, habitDescription, trackingStyle, finalUnit, selectedCategoryId);
       } else {
-        await createHabit(
-          habitTitle,
-          habitDescription,
-          trackingStyle,
-          finalUnit,
-          selectedCategoryId
-        );
-        Alert.alert('Success', 'Habit created successfully.');
+        await createHabit(habitTitle, habitDescription, trackingStyle, finalUnit, selectedCategoryId);
       }
-
       setHabitTitle('');
       setHabitDescription('');
       setTrackingStyle('count');
@@ -90,9 +49,7 @@ export default function HabitsScreen() {
       setEditingHabitId(null);
       await loadHabits();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not save habit.';
-      Alert.alert('Error', message);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Could not save habit.');
     }
   };
 
@@ -106,30 +63,22 @@ export default function HabitsScreen() {
   };
 
   const handleDeleteHabit = (habitId: number) => {
-    Alert.alert(
-      'Delete Habit',
-      'Are you sure you want to delete this habit?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteHabit(habitId);
-              if (editingHabitId === habitId) {
-                handleCancelEdit();
-              }
-              await loadHabits();
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : 'Could not delete habit.';
-              Alert.alert('Error', message);
-            }
-          },
+    Alert.alert('Delete Habit', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteHabit(habitId);
+            if (editingHabitId === habitId) handleCancelEdit();
+            await loadHabits();
+          } catch (error) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'Could not delete habit.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleCancelEdit = () => {
@@ -141,44 +90,45 @@ export default function HabitsScreen() {
     setSelectedCategoryId(null);
   };
 
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Habits</Text>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[g.pageTitle, { color: colors.black }]}>Habits</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
-          {editingHabitId ? 'Edit Habit' : 'Create Habit'}
+      <View style={[g.section, { borderTopColor: colors.border }]}>
+        <Text style={[g.sectionTitle, { color: colors.black }]}>
+          {editingHabitId ? 'Edit Habit' : 'New Habit'}
         </Text>
 
         <FormField
-          label="Habit Title"
+          label="Title"
           placeholder="e.g. Drink Water"
           value={habitTitle}
           onChangeText={setHabitTitle}
         />
-
         <FormField
           label="Description"
-          placeholder="e.g. Stay hydrated every day"
+          placeholder="Optional description"
           value={habitDescription}
           onChangeText={setHabitDescription}
         />
 
-        <Text style={styles.label}>Tracking Style</Text>
-        <View style={styles.buttonRow}>
+        <Text style={[g.label, { color: colors.black }]}>Tracking Style</Text>
+        <View style={g.toggleRow}>
           <Pressable
             style={[
-              styles.optionButton,
-              trackingStyle === 'count' && styles.optionButtonActive,
+              g.toggleBtn,
+              { borderColor: colors.border, backgroundColor: colors.white },
+              trackingStyle === 'count' && g.toggleBtnActive,
             ]}
             onPress={() => setTrackingStyle('count')}
+            accessibilityLabel="Track by number"
+            accessibilityRole="button"
           >
             <Text
               style={[
-                styles.optionButtonText,
-                trackingStyle === 'count' && styles.optionButtonTextActive,
+                g.toggleBtnText,
+                { color: colors.black },
+                trackingStyle === 'count' && g.toggleBtnTextActive,
               ]}
             >
               Number
@@ -187,15 +137,19 @@ export default function HabitsScreen() {
 
           <Pressable
             style={[
-              styles.optionButton,
-              trackingStyle === 'boolean' && styles.optionButtonActive,
+              g.toggleBtn,
+              { borderColor: colors.border, backgroundColor: colors.white },
+              trackingStyle === 'boolean' && g.toggleBtnActive,
             ]}
             onPress={() => setTrackingStyle('boolean')}
+            accessibilityLabel="Track yes or no"
+            accessibilityRole="button"
           >
             <Text
               style={[
-                styles.optionButtonText,
-                trackingStyle === 'boolean' && styles.optionButtonTextActive,
+                g.toggleBtnText,
+                { color: colors.black },
+                trackingStyle === 'boolean' && g.toggleBtnTextActive,
               ]}
             >
               Yes / No
@@ -203,113 +157,105 @@ export default function HabitsScreen() {
           </Pressable>
         </View>
 
-        {trackingStyle === 'count' ? (
+        {trackingStyle === 'count' && (
           <FormField
             label="Unit"
-            placeholder="e.g. glasses, minutes, euro"
+            placeholder="e.g. glasses, minutes"
             value={habitUnit}
             onChangeText={setHabitUnit}
           />
-        ) : (
-          <View style={styles.helperBox}>
-            <Text style={styles.helperText}>
-              This habit will be logged as completed or not completed.
-            </Text>
-          </View>
         )}
 
-        <Text style={styles.label}>Choose Category</Text>
+        <Text style={[g.label, { color: colors.black }]}>Category</Text>
         {categories.length === 0 ? (
-          <Text style={styles.emptyText}>
-            No categories yet. Create a category first.
+          <Text style={[g.emptyText, { color: colors.black }]}>
+            No categories yet. Create one first.
           </Text>
         ) : (
-          <View style={styles.choiceWrap}>
-            {categories.map((category) => (
+          <View style={g.chipRow}>
+            {categories.map((cat) => (
               <Pressable
-                key={category.id}
+                key={cat.id}
                 style={[
-                  styles.choiceChip,
-                  selectedCategoryId === category.id && styles.choiceChipActive,
+                  g.chip,
+                  { borderColor: colors.border, backgroundColor: colors.white },
+                  selectedCategoryId === cat.id && g.chipActive,
                 ]}
-                onPress={() => setSelectedCategoryId(category.id)}
+                onPress={() => setSelectedCategoryId(cat.id)}
+                accessibilityLabel={`Select category ${cat.name}`}
+                accessibilityRole="button"
               >
-                <View
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: category.color },
-                  ]}
-                />
                 <Text
                   style={[
-                    styles.choiceChipText,
-                    selectedCategoryId === category.id &&
-                      styles.choiceChipTextActive,
+                    g.chipText,
+                    { color: colors.black },
+                    selectedCategoryId === cat.id && g.chipTextActive,
                   ]}
                 >
-                  {category.name}
+                  {cat.name}
                 </Text>
               </Pressable>
             ))}
           </View>
         )}
 
-        {selectedCategory ? (
-          <Text style={styles.helperSelected}>
-            Selected: {selectedCategory.name}
-          </Text>
-        ) : null}
-
-        <Pressable style={styles.primaryButton} onPress={handleSaveHabit}>
-          <Text style={styles.primaryButtonText}>
-            {editingHabitId ? 'Save Habit' : 'Add Habit'}
-          </Text>
+        <Pressable
+          style={g.primaryButton}
+          onPress={handleSaveHabit}
+          accessibilityLabel={editingHabitId ? 'Save habit' : 'Add habit'}
+          accessibilityRole="button"
+        >
+          <Text style={g.primaryButtonText}>{editingHabitId ? 'Save' : 'Add Habit'}</Text>
         </Pressable>
 
         {editingHabitId ? (
-          <Pressable style={styles.secondaryButton} onPress={handleCancelEdit}>
-            <Text style={styles.secondaryButtonText}>Cancel Edit</Text>
+          <Pressable
+            style={[g.secondaryButton, { backgroundColor: colors.white, borderColor: colors.border }]}
+            onPress={handleCancelEdit}
+            accessibilityLabel="Cancel edit"
+            accessibilityRole="button"
+          >
+            <Text style={[g.secondaryButtonText, { color: colors.black }]}>Cancel</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Your Habits</Text>
+      <View style={[g.section, { borderTopColor: colors.border }]}>
+        <Text style={[g.sectionTitle, { color: colors.black }]}>Your Habits</Text>
 
         {habits.length === 0 ? (
-          <Text style={styles.emptyText}>No habits yet.</Text>
+          <Text style={[g.emptyText, { color: colors.black }]}>No habits yet.</Text>
         ) : (
           habits.map((habit) => (
-            <View key={habit.id} style={styles.listItem}>
-              <Text style={styles.listTitle}>{habit.title}</Text>
-              <Text style={styles.listSubtitle}>
-                Tracking: {habit.habit_type === 'boolean' ? 'Yes / No' : 'Number'}
-              </Text>
-              <Text style={styles.listSubtitle}>
-                Unit: {habit.habit_type === 'boolean' ? 'Completed' : habit.unit}
-              </Text>
-              <Text style={styles.listSubtitle}>
+            <View key={habit.id} style={[g.listItem, { borderBottomColor: colors.border }]}>
+              <Text style={[g.listTitle, { color: colors.black }]}>{habit.title}</Text>
+              <Text style={[g.bodyText, { color: colors.black }]}>
                 Category: {habit.category_name}
               </Text>
+              <Text style={[g.bodyText, { color: colors.black }]}>
+                Tracking: {habit.habit_type === 'boolean' ? 'Yes / No' : `Number (${habit.unit})`}
+              </Text>
               {habit.description ? (
-                <Text style={styles.listSubtitle}>
-                  Description: {habit.description}
-                </Text>
+                <Text style={[g.bodyText, { color: colors.black }]}>{habit.description}</Text>
               ) : null}
 
-              <View style={styles.actionRow}>
+              <View style={g.actionRow}>
                 <Pressable
-                  style={styles.smallEditButton}
+                  style={g.smallPrimaryButton}
                   onPress={() => handleEditHabit(habit)}
+                  accessibilityLabel={`Edit ${habit.title}`}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.smallEditButtonText}>Edit</Text>
+                  <Text style={g.smallPrimaryButtonText}>Edit</Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.smallDeleteButton}
+                  style={g.smallDangerButton}
                   onPress={() => handleDeleteHabit(habit.id)}
+                  accessibilityLabel={`Delete ${habit.title}`}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.smallDeleteButtonText}>Delete</Text>
+                  <Text style={g.smallDangerButtonText}>Delete</Text>
                 </Pressable>
               </View>
             </View>
@@ -322,178 +268,6 @@ export default function HabitsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f9fafb',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 40,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: '#fff',
     padding: 16,
-    borderRadius: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 14,
-    color: '#111827',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 10,
-    color: '#111827',
-  },
-  helperBox: {
-    backgroundColor: '#f3f4f6',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  helperText: {
-    color: '#4b5563',
-    fontSize: 14,
-  },
-  helperSelected: {
-    fontSize: 14,
-    color: '#4b5563',
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  emptyText: {
-    color: '#6b7280',
-    fontSize: 15,
-  },
-  listItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  listTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  listSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  primaryButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  secondaryButtonText: {
-    color: '#111827',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  smallEditButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 10,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  smallEditButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  smallDeleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 10,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  smallDeleteButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  optionButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-  },
-  optionButtonActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  optionButtonText: {
-    color: '#111827',
-    fontWeight: '500',
-  },
-  optionButtonTextActive: {
-    color: '#fff',
-  },
-  choiceWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  choiceChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#fff',
-  },
-  choiceChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  choiceChipText: {
-    color: '#111827',
-    fontWeight: '500',
-  },
-  choiceChipTextActive: {
-    color: '#fff',
-  },
-  colorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
   },
 });
